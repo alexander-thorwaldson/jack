@@ -1,0 +1,91 @@
+repository:
+  name: jack
+  description: CLI for managing agentic development sessions
+  homepage: https://github.com/zoobzio/jack
+  has_wiki: true
+  has_downloads: true
+  default_branch: main
+  allow_squash_merge: true
+  allow_merge_commit: false
+  allow_rebase_merge: false
+  delete_branch_on_merge: true
+
+labels:
+  - name: "phase:plan"
+    color: "d4c5f9"
+    description: "Requirements and architecture in progress"
+  - name: "phase:build"
+    color: "0075ca"
+    description: "Implementation and testing in progress"
+  - name: "phase:review"
+    color: "e4e669"
+    description: "Deliverables under review"
+  - name: "phase:document"
+    color: "0e8a16"
+    description: "Documentation assessment and updates"
+  - name: "phase:pr"
+    color: "1d76db"
+    description: "Pull request awaiting workflows and reviewer feedback"
+  - name: "escalation:architecture"
+    color: "d93f0b"
+    description: "Architectural problem under diagnosis"
+  - name: "escalation:scope"
+    color: "fbca04"
+    description: "Issue scope needs expansion"
+  - name: "review:code"
+    color: "c2185b"
+    description: "Code structure or pattern concern"
+  - name: "review:architecture"
+    color: "7b1fa2"
+    description: "Architecture alignment concern"
+  - name: "review:tests"
+    color: "bf360c"
+    description: "Test quality or coverage concern"
+  - name: "review:security"
+    color: "880e0e"
+    description: "Security concern"
+  - name: "review:docs"
+    color: "1565c0"
+    description: "Documentation accuracy concern"
+  - name: "review:mission"
+    color: "4a148c"
+    description: "Mission alignment concern"
+  - name: "severity:critical"
+    color: "b71c1c"
+    description: "Must be addressed before release"
+  - name: "severity:high"
+    color: "e65100"
+    description: "Should be addressed promptly"
+  - name: "severity:medium"
+    color: "f9a825"
+    description: "Should be addressed"
+  - name: "severity:low"
+    color: "607d8b"
+    description: "Address when convenient"
+  - name: "feature"
+    color: "a2eeef"
+    description: "New feature or enhancement"
+  - name: "bug"
+    color: "d73a4a"
+    description: "Something isn't working"
+  - name: "docs"
+    color: "006064"
+    description: "Documentation improvement"
+  - name: "infra"
+    color: "b39ddb"
+    description: "CI, tooling, or infrastructure"
+
+branches:
+  - name: main
+    protection:
+      required_pull_request_reviews:
+        required_approving_review_count: 1
+        dismiss_stale_reviews: true
+        require_code_owner_reviews: true
+      required_status_checks:
+        strict: true
+        contexts:
+          - CI Complete
+      enforce_admins: true
+      required_linear_history: true
+      restrictions: null

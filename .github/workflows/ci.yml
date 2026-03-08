@@ -1,0 +1,86 @@
+name: CI
+
+on:
+  push:
+    branches: [ main, master ]
+  pull_request:
+    branches: [ main, master ]
+
+jobs:
+  test:
+    name: Test
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        go-version: ['1.24', '1.25']
+    steps:
+    - uses: actions/checkout@v4
+    - name: Set up Go
+      uses: actions/setup-go@v5
+      with:
+        go-version: ${{ matrix.go-version }}
+    - name: Test
+      run: make test
+
+  lint:
+    name: Lint
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+    - name: Set up Go
+      uses: actions/setup-go@v5
+      with:
+        go-version: '1.25'
+    - name: golangci-lint
+      uses: golangci/golangci-lint-action@v7
+      with:
+        version: v2.7.2
+        args: --config=.golangci.yml --timeout=5m
+
+  security:
+    name: Security
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      security-events: write
+    steps:
+    - uses: actions/checkout@v4
+    - name: Set up Go
+      uses: actions/setup-go@v5
+      with:
+        go-version: '1.25'
+    - name: Run Gosec
+      uses: securego/gosec@v2.22.11
+      with:
+        args: '-fmt sarif -out gosec-results.sarif --no-fail ./...'
+    - name: Upload SARIF
+      uses: github/codeql-action/upload-sarif@v3
+      if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
+      continue-on-error: true
+      with:
+        sarif_file: gosec-results.sarif
+
+  benchmark:
+    name: Benchmark
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+    - name: Set up Go
+      uses: actions/setup-go@v5
+      with:
+        go-version: '1.25'
+    - name: Run benchmarks
+      run: make test-bench
+    - name: Upload results
+      uses: actions/upload-artifact@v4
+      with:
+        name: benchmark-results
+        path: benchmark_results.txt
+      if: always()
+
+  ci-complete:
+    name: CI Complete
+    needs: [test, lint, security, benchmark]
+    runs-on: ubuntu-latest
+    steps:
+    - run: echo "CI complete"

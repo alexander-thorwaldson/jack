@@ -1,0 +1,54 @@
+version: "2"
+
+run:
+  timeout: 5m
+  tests: true
+  build-tags:
+    - integration
+
+linters:
+  enable:
+    # Security
+    - gosec
+    - errorlint
+    - noctx
+    - bodyclose
+    - sqlclosecheck
+    # Quality
+    - govet
+    - ineffassign
+    - staticcheck
+    - unused
+    - errcheck
+    - errchkjson
+    - wastedassign
+    # Best practices
+    - gocritic
+    - revive
+    - unconvert
+    - dupl
+    - goconst
+    - godot
+    - misspell
+    - prealloc
+    - copyloopvar
+
+  exclusions:
+    rules:
+      - path: _test\.go
+        linters:
+          - funlen
+          - goconst
+          - dupl
+          - govet
+
+  settings:
+    errcheck:
+      check-type-assertions: true
+    govet:
+      enable-all: true
+    dupl:
+      threshold: 150
+    goconst:
+      min-len: 3
+      min-occurrences: 3
