@@ -24,7 +24,8 @@ func ensureBoardRoom(name, topic, aliasName string, resolve AliasResolver, creat
 	return room.RoomID, nil
 }
 
-func runBoardPost(name, topic, aliasName, message string, resolve AliasResolver, send MessageSender, create func(string, string, string) (*Room, error)) error {
+// RunBoardPost posts a message to a board room, creating it if needed.
+func RunBoardPost(name, topic, aliasName, message string, resolve AliasResolver, send MessageSender, create func(string, string, string) (*Room, error)) error {
 	roomID, err := ensureBoardRoom(name, topic, aliasName, resolve, create)
 	if err != nil {
 		return err
@@ -37,7 +38,8 @@ func runBoardPost(name, topic, aliasName, message string, resolve AliasResolver,
 	return nil
 }
 
-func runBoardRead(name, topic, aliasName string, limit int, jsonOut bool, from string, resolve AliasResolver, read MessageReader, create func(string, string, string) (*Room, error)) error {
+// RunBoardRead reads messages from a board room, creating it if needed.
+func RunBoardRead(name, topic, aliasName string, limit int, jsonOut bool, from string, resolve AliasResolver, read MessageReader, create func(string, string, string) (*Room, error)) error {
 	roomID, err := ensureBoardRoom(name, topic, aliasName, resolve, create)
 	if err != nil {
 		return err

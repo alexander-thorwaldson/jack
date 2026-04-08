@@ -401,6 +401,65 @@ func (c *Client) SetDirectRooms(userID string, rooms map[string][]string) error 
 	return c.put(path, rooms, nil)
 }
 
+// Kick removes a user from a room.
+func (c *Client) Kick(roomID, userID, reason string) error {
+	body := map[string]interface{}{
+		"user_id": userID,
+		"reason":  reason,
+	}
+	if err := c.post(fmt.Sprintf("/_matrix/client/v3/rooms/%s/kick", escapePathParam(roomID)), body, nil); err != nil {
+		return fmt.Errorf("kick: %w", err)
+	}
+	return nil
+}
+
+// MemberKicker removes a user from a room.
+type MemberKicker func(roomID, userID, reason string) error
+
+// GetMembers returns the joined member user IDs for a room.
+func (c *Client) GetMembers(roomID string) ([]string, error) {
+	var resp struct {
+		Chunk []struct {
+			StateKey   string `json:"state_key"`
+			Type       string `json:"type"`
+			Content    struct {
+				Membership string `json:"membership"`
+			} `json:"content"`
+		} `json:"chunk"`
+	}
+	path := fmt.Sprintf("/_matrix/client/v3/rooms/%s/members?membership=join", escapePathParam(roomID))
+	if err := c.get(path, &resp); err != nil {
+		return nil, fmt.Errorf("get members: %w", err)
+	}
+	var members []string
+	for _, m := range resp.Chunk {
+		if m.Type == "m.room.member" && m.Content.Membership == "join" {
+			members = append(members, m.StateKey)
+		}
+	}
+	return members, nil
+}
+
+// MemberLister returns the joined member user IDs for a room.
+type MemberLister func(roomID string) ([]string, error)
+
+// SetRoomReadOnly sets the room power levels so that the default user level
+// cannot send messages (events_default = 50, users_default = 0).
+func (c *Client) SetRoomReadOnly(roomID string) error {
+	body := map[string]interface{}{
+		"events_default": 50,
+		"users_default":  0,
+	}
+	path := fmt.Sprintf("/_matrix/client/v3/rooms/%s/state/m.room.power_levels/", escapePathParam(roomID))
+	if err := c.put(path, body, nil); err != nil {
+		return fmt.Errorf("set power levels: %w", err)
+	}
+	return nil
+}
+
+// RoomReadOnlySetter makes a room read-only.
+type RoomReadOnlySetter func(roomID string) error
+
 // escapePathParam percent-encodes a value for use in a URL path segment.
 func escapePathParam(s string) string {
 	return strings.ReplaceAll(url.PathEscape(s), ":", "%3A")

@@ -19,7 +19,7 @@ func TestRunRepoPostSuccess(t *testing.T) {
 		return "$evt1", nil
 	}
 	name, topic, aliasName := repoTarget("vicky")
-	err := runBoardPost(name, topic, aliasName, "PR #1 ready", stubResolver("!repo:localhost"), sender, stubCreator("!repo:localhost"))
+	err := RunBoardPost(name, topic, aliasName, "PR #1 ready", stubResolver("!repo:localhost"), sender, stubCreator("!repo:localhost"))
 	jtesting.AssertNoError(t, err)
 	jtesting.AssertEqual(t, sentRoom, "!repo:localhost")
 	jtesting.AssertEqual(t, sentMsg, "PR #1 ready")
@@ -34,7 +34,7 @@ func TestRunRepoPostCreatesRoom(t *testing.T) {
 	}
 	sender := func(_, _ string) (string, error) { return "$evt1", nil }
 	name, topic, aliasName := repoTarget("vicky")
-	err := runBoardPost(name, topic, aliasName, "first post", failResolver(), sender, creator)
+	err := RunBoardPost(name, topic, aliasName, "first post", failResolver(), sender, creator)
 	jtesting.AssertNoError(t, err)
 	jtesting.AssertEqual(t, created, true)
 }
@@ -49,7 +49,7 @@ func TestRunRepoReadSuccess(t *testing.T) {
 		}, nil
 	}
 	name, topic, aliasName := repoTarget("vicky")
-	err := runBoardRead(name, topic, aliasName, 10, false, "", stubResolver("!repo:localhost"), reader, stubCreator("!repo:localhost"))
+	err := RunBoardRead(name, topic, aliasName, 10, false, "", stubResolver("!repo:localhost"), reader, stubCreator("!repo:localhost"))
 	jtesting.AssertNoError(t, err)
 }
 

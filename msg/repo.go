@@ -26,7 +26,7 @@ var repoPostCmd = &cobra.Command{
 		repo := args[0]
 		message := strings.Join(args[1:], " ")
 		name, topic, aliasName := repoTarget(repo)
-		if err := runBoardPost(name, topic, aliasName, message, client.ResolveAlias, client.Send, client.CreateRoomWithAlias); err != nil {
+		if err := RunBoardPost(name, topic, aliasName, message, client.ResolveAlias, client.Send, client.CreateRoomWithAlias); err != nil {
 			return err
 		}
 		return postCheck(cmd)
@@ -56,7 +56,7 @@ var repoReadCmd = &cobra.Command{
 			}
 			return runReadSince(roomID, since, limit, jsonFlag, client.EventContext, client.MessagesFrom)
 		}
-		return runBoardRead(name, topic, aliasName, limit, jsonFlag, from, client.ResolveAlias, client.Messages, client.CreateRoomWithAlias)
+		return RunBoardRead(name, topic, aliasName, limit, jsonFlag, from, client.ResolveAlias, client.Messages, client.CreateRoomWithAlias)
 	},
 }
 
