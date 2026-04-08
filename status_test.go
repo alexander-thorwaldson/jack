@@ -8,7 +8,7 @@ import (
 	"testing"
 	"time"
 
-	jtesting "github.com/zoobzio/jack/testing"
+	jtesting "jack.dev/jack/testing"
 )
 
 var noopContainerChecker ContainerChecker = func(_ string) (bool, bool) { return false, false }

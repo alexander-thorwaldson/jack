@@ -7,7 +7,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	jtesting "github.com/zoobzio/jack/testing"
+	jtesting "jack.dev/jack/testing"
 )
 
 func TestContainerName(t *testing.T) {
@@ -65,7 +65,7 @@ func TestSessionMountsWithSupportingRepos(t *testing.T) {
 	_ = os.MkdirAll(wikiDir, 0o750)
 
 	profile := Profile{
-		Repos: []string{"git@github.com:zoobzio/wiki.git"},
+		Repos: []string{"git@github.com:jackdev/wiki.git"},
 	}
 	mounts := SessionMounts(profile, "blue", filepath.Join(dataDir, "blue", "vicky"))
 

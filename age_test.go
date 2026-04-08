@@ -7,7 +7,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	jtesting "github.com/zoobzio/jack/testing"
+	jtesting "jack.dev/jack/testing"
 )
 
 func TestTokenPath(t *testing.T) {

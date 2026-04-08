@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/zoobzio/jack/msg"
+	"jack.dev/jack/msg"
 )
 
 func main() {

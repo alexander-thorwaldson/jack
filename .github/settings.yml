@@ -1,7 +1,7 @@
 repository:
   name: jack
   description: CLI for managing agentic development sessions
-  homepage: https://github.com/zoobzio/jack
+  homepage: https://jack.dev
   has_wiki: true
   has_downloads: true
   default_branch: main

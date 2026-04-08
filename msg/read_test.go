@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"testing"
 
-	jtesting "github.com/zoobzio/jack/testing"
+	jtesting "jack.dev/jack/testing"
 )
 
 func TestRunReadSuccess(t *testing.T) {

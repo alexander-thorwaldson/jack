@@ -9,7 +9,7 @@ import (
 	"strings"
 	"testing"
 
-	jtesting "github.com/zoobzio/jack/testing"
+	jtesting "jack.dev/jack/testing"
 )
 
 func stubRegistry(entries ...RegistryEntry) RegistryLoader {

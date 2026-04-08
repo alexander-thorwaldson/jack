@@ -5,8 +5,7 @@ import (
 	"os"
 
 	"github.com/spf13/cobra"
-	"github.com/zoobzio/fig"
-	"github.com/zoobzio/jack/msg"
+	"jack.dev/jack/msg"
 )
 
 var env Env
@@ -15,11 +14,9 @@ var rootCmd = &cobra.Command{
 	Use:   "jack",
 	Short: "Operator console for multi-agent development",
 	Long:  "Jack manages agents, sandboxes, sessions, and profiles for multi-agent Claude Code development.",
-	PersistentPreRunE: func(cmd *cobra.Command, _ []string) error {
-		if err := fig.Load(&env); err != nil {
-			return fmt.Errorf("failed to load environment config: %w", err)
-		}
-		if err := initConfig(cmd.Context(), env.configPath()); err != nil {
+	PersistentPreRunE: func(_ *cobra.Command, _ []string) error {
+		env = loadEnv()
+		if err := initConfig(env.configPath()); err != nil {
 			return err
 		}
 		msg.Homeserver = cfg.Matrix.Homeserver

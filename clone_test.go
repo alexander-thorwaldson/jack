@@ -9,8 +9,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/zoobzio/jack/msg"
-	jtesting "github.com/zoobzio/jack/testing"
+	"jack.dev/jack/msg"
+	jtesting "jack.dev/jack/testing"
 )
 
 func TestRepoName(t *testing.T) {
@@ -19,11 +19,11 @@ func TestRepoName(t *testing.T) {
 		input string
 		want  string
 	}{
-		{"scp with .git", "git@github.com:zoobzio/vicky.git", "vicky"},
-		{"scp without .git", "git@github.com:zoobzio/vicky", "vicky"},
-		{"https with .git", "https://github.com/zoobzio/vicky.git", "vicky"},
-		{"https without .git", "https://github.com/zoobzio/vicky", "vicky"},
-		{"ssh protocol", "ssh://git@github.com/zoobzio/vicky.git", "vicky"},
+		{"scp with .git", "git@github.com:jackdev/vicky.git", "vicky"},
+		{"scp without .git", "git@github.com:jackdev/vicky", "vicky"},
+		{"https with .git", "https://github.com/jackdev/vicky.git", "vicky"},
+		{"https without .git", "https://github.com/jackdev/vicky", "vicky"},
+		{"ssh protocol", "ssh://git@github.com/jackdev/vicky.git", "vicky"},
 	}
 
 	for _, tt := range tests {
@@ -74,7 +74,7 @@ func setupAgentFixtures(t *testing.T, skills []string) {
 func TestRunCloneUnknownAgent(t *testing.T) {
 	newTestConfig()
 	setupAgentFixtures(t, []string{"commit", "pr"})
-	err := runClone(context.Background(), "git@github.com:zoobzio/vicky.git", []string{"bogus"}, false,
+	err := runClone(context.Background(), "git@github.com:jackdev/vicky.git", []string{"bogus"}, false,
 		noopCloner, noopChecker, noopKiller,
 		noopRegisterer, noopLogin, noopTokenWriter,
 		noopRegLoader, noopRegSaver, noopRepoProvisioner, noopImageBuilder)
@@ -99,13 +99,13 @@ func TestRunCloneSuccess(t *testing.T) {
 		return nil
 	}
 
-	err := runClone(context.Background(), "git@github.com:zoobzio/vicky.git", []string{"blue"}, false,
+	err := runClone(context.Background(), "git@github.com:jackdev/vicky.git", []string{"blue"}, false,
 		cloner, noopChecker, noopKiller,
 		noopRegisterer, noopLogin, noopTokenWriter,
 		noopRegLoader, saver, noopRepoProvisioner, noopImageBuilder)
 	jtesting.AssertNoError(t, err)
 	jtesting.AssertEqual(t, len(clonedURLs), 1)
-	jtesting.AssertEqual(t, clonedURLs[0], "git@github.com:zoobzio/vicky.git")
+	jtesting.AssertEqual(t, clonedURLs[0], "git@github.com:jackdev/vicky.git")
 	jtesting.AssertEqual(t, strings.HasSuffix(clonedDirs[0], "blue/vicky"), true)
 	jtesting.AssertEqual(t, savedReg != nil, true)
 	jtesting.AssertEqual(t, savedReg.Find("blue", "vicky") != nil, true)
@@ -126,7 +126,7 @@ func TestRunCloneMultipleAgents(t *testing.T) {
 		return nil
 	}
 
-	err := runClone(context.Background(), "git@github.com:zoobzio/vicky.git", []string{"blue", "red"}, false,
+	err := runClone(context.Background(), "git@github.com:jackdev/vicky.git", []string{"blue", "red"}, false,
 		noopCloner, noopChecker, noopKiller,
 		noopRegisterer, noopLogin, noopTokenWriter,
 		noopRegLoader, saver, noopRepoProvisioner, noopImageBuilder)
@@ -153,7 +153,7 @@ func TestRunCloneRegistersAndStoresToken(t *testing.T) {
 		return nil
 	}
 
-	err := runClone(context.Background(), "git@github.com:zoobzio/vicky.git", []string{"blue"}, false,
+	err := runClone(context.Background(), "git@github.com:jackdev/vicky.git", []string{"blue"}, false,
 		noopCloner, noopChecker, noopKiller,
 		registerer, noopLogin, writer,
 		noopRegLoader, noopRegSaver, noopRepoProvisioner, noopImageBuilder)
@@ -168,7 +168,7 @@ func TestRunCloneValidationFailsMissingAgent(t *testing.T) {
 	configDir := t.TempDir()
 	env = Env{ConfigDir: configDir, DataDir: t.TempDir()}
 
-	err := runClone(context.Background(), "git@github.com:zoobzio/vicky.git", []string{"blue"}, false,
+	err := runClone(context.Background(), "git@github.com:jackdev/vicky.git", []string{"blue"}, false,
 		noopCloner, noopChecker, noopKiller,
 		noopRegisterer, noopLogin, noopTokenWriter,
 		noopRegLoader, noopRegSaver, noopRepoProvisioner, noopImageBuilder)
@@ -190,7 +190,7 @@ func TestRunCloneSkipsExisting(t *testing.T) {
 		return nil
 	}
 
-	err := runClone(context.Background(), "git@github.com:zoobzio/vicky.git", []string{"blue"}, false,
+	err := runClone(context.Background(), "git@github.com:jackdev/vicky.git", []string{"blue"}, false,
 		cloner, noopChecker, noopKiller,
 		noopRegisterer, noopLogin, noopTokenWriter,
 		noopRegLoader, noopRegSaver, noopRepoProvisioner, noopImageBuilder)
@@ -220,7 +220,7 @@ func TestRunCloneForceReplacesExisting(t *testing.T) {
 
 	hasSession := func(_ string) bool { return true }
 
-	err := runClone(context.Background(), "git@github.com:zoobzio/vicky.git", []string{"blue"}, true,
+	err := runClone(context.Background(), "git@github.com:jackdev/vicky.git", []string{"blue"}, true,
 		cloner, hasSession, killer,
 		noopRegisterer, noopLogin, noopTokenWriter,
 		noopRegLoader, noopRegSaver, noopRepoProvisioner, noopImageBuilder)

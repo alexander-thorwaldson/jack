@@ -1,14 +1,12 @@
 package jack
 
 import (
-	"context"
 	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
 
-	"github.com/zoobzio/flux"
-	"github.com/zoobzio/flux/file"
+	"gopkg.in/yaml.v3"
 )
 
 // Config represents the top-level YAML configuration.
@@ -94,29 +92,16 @@ func discoverRepoSkills(repo string) ([]string, error) {
 	return skills, nil
 }
 
-var capacitor *flux.Capacitor[Config]
-
 var cfg Config
 
-// initConfig creates and starts the flux capacitor for the config file.
-func initConfig(ctx context.Context, configPath string) error {
-	capacitor = flux.New[Config](
-		file.New(configPath),
-		func(_ context.Context, _, curr Config) error {
-			cfg = curr
-			return nil
-		},
-	).Codec(flux.YAMLCodec{})
-
-	if err := capacitor.Start(ctx); err != nil {
-		return fmt.Errorf("failed to load config: %w", err)
+// initConfig loads the configuration from the given YAML file.
+func initConfig(configPath string) error {
+	data, err := os.ReadFile(filepath.Clean(configPath)) // #nosec G304 -- path from internal config
+	if err != nil {
+		return fmt.Errorf("reading config: %w", err)
 	}
-
-	current, ok := capacitor.Current()
-	if !ok {
-		return fmt.Errorf("config loaded but no current value available")
+	if err := yaml.Unmarshal(data, &cfg); err != nil {
+		return fmt.Errorf("parsing config: %w", err)
 	}
-	cfg = current
-
 	return nil
 }

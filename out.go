@@ -5,7 +5,7 @@ import (
 	"strings"
 
 	"github.com/spf13/cobra"
-	"github.com/zoobzio/jack/msg"
+	"jack.dev/jack/msg"
 )
 
 func init() {

@@ -5,7 +5,7 @@ package jack
 import (
 	"testing"
 
-	jtesting "github.com/zoobzio/jack/testing"
+	jtesting "jack.dev/jack/testing"
 )
 
 // Shared test helpers used across multiple test files.

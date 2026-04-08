@@ -7,26 +7,26 @@ import (
 	"path/filepath"
 	"testing"
 
-	jtesting "github.com/zoobzio/jack/testing"
+	jtesting "jack.dev/jack/testing"
 )
 
 func TestRegistryAdd(t *testing.T) {
 	r := &Registry{}
-	r.Add("blue", "vicky", "git@github.com:zoobzio/vicky.git")
+	r.Add("blue", "vicky", "git@github.com:jackdev/vicky.git")
 
 	jtesting.AssertEqual(t, len(r.Projects), 1)
 	jtesting.AssertEqual(t, r.Projects[0].Agent, "blue")
 	jtesting.AssertEqual(t, r.Projects[0].Repo, "vicky")
-	jtesting.AssertEqual(t, r.Projects[0].URL, "git@github.com:zoobzio/vicky.git")
+	jtesting.AssertEqual(t, r.Projects[0].URL, "git@github.com:jackdev/vicky.git")
 }
 
 func TestRegistryAddReplacesExisting(t *testing.T) {
 	r := &Registry{}
-	r.Add("blue", "vicky", "git@github.com:zoobzio/vicky.git")
-	r.Add("blue", "vicky", "git@github.com:zoobzio/vicky2.git")
+	r.Add("blue", "vicky", "git@github.com:jackdev/vicky.git")
+	r.Add("blue", "vicky", "git@github.com:jackdev/vicky2.git")
 
 	jtesting.AssertEqual(t, len(r.Projects), 1)
-	jtesting.AssertEqual(t, r.Projects[0].URL, "git@github.com:zoobzio/vicky2.git")
+	jtesting.AssertEqual(t, r.Projects[0].URL, "git@github.com:jackdev/vicky2.git")
 }
 
 func TestRegistryRemove(t *testing.T) {
@@ -102,8 +102,8 @@ func TestRegistryLoadSaveRoundTrip(t *testing.T) {
 	env = Env{DataDir: dir, ConfigDir: t.TempDir()}
 
 	r := &Registry{}
-	r.Add("blue", "vicky", "git@github.com:zoobzio/vicky.git")
-	r.Add("red", "flux", "git@github.com:zoobzio/flux.git")
+	r.Add("blue", "vicky", "git@github.com:jackdev/vicky.git")
+	r.Add("red", "flux", "git@github.com:jackdev/flux.git")
 
 	err := saveRegistry(r)
 	jtesting.AssertNoError(t, err)

@@ -8,7 +8,7 @@ import (
 	"strings"
 	"testing"
 
-	jtesting "github.com/zoobzio/jack/testing"
+	jtesting "jack.dev/jack/testing"
 )
 
 func TestRunAuthUnknownAgent(t *testing.T) {

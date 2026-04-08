@@ -6,7 +6,7 @@ import (
 	"strings"
 	"testing"
 
-	jtesting "github.com/zoobzio/jack/testing"
+	jtesting "jack.dev/jack/testing"
 )
 
 var noopTokenReader TokenReader = func(_, _ string) string { return "" }

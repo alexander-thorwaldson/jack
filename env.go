@@ -6,10 +6,25 @@ import (
 	"path/filepath"
 )
 
-// Env holds path overrides loaded from environment variables via fig.
+// Env holds path overrides loaded from environment variables.
 type Env struct {
-	ConfigDir string `env:"JACK_CONFIG_DIR" default:"~/.config/jack"`
-	DataDir   string `env:"JACK_DATA_DIR"   default:"~/.jack"`
+	ConfigDir string
+	DataDir   string
+}
+
+// loadEnv reads environment variables with defaults.
+func loadEnv() Env {
+	return Env{
+		ConfigDir: envOrDefault("JACK_CONFIG_DIR", "~/.config/jack"),
+		DataDir:   envOrDefault("JACK_DATA_DIR", "~/.jack"),
+	}
+}
+
+func envOrDefault(key, fallback string) string {
+	if v := os.Getenv(key); v != "" {
+		return v
+	}
+	return fallback
 }
 
 // Validate ensures the configured directories are valid paths.
