@@ -28,6 +28,7 @@ type Profile struct {
 	Git    GitConfig    `yaml:"git"`
 	GitHub GitHubConfig `yaml:"github"`
 	SSH    SSHConfig    `yaml:"ssh"`
+	Repos  []string     `yaml:"repos"`
 }
 
 // GitConfig holds git identity settings.
@@ -66,6 +67,23 @@ func discoverAgentSkills(agentName string) ([]string, error) {
 	entries, err := os.ReadDir(skillsDir)
 	if err != nil {
 		return nil, fmt.Errorf("agent skills directory for %q: %w", agentName, err)
+	}
+	var skills []string
+	for _, e := range entries {
+		if e.IsDir() || e.Type()&os.ModeSymlink != 0 {
+			skills = append(skills, e.Name())
+		}
+	}
+	return skills, nil
+}
+
+// discoverRepoSkills returns skill names for a repo by reading entries from
+// the repos/{name}/skills/ directory. Returns nil if the directory doesn't exist.
+func discoverRepoSkills(repo string) ([]string, error) {
+	skillsDir := filepath.Join(env.configDir(), "repos", repo, "skills")
+	entries, err := os.ReadDir(skillsDir)
+	if err != nil {
+		return nil, err
 	}
 	var skills []string
 	for _, e := range entries {

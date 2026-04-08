@@ -4,6 +4,7 @@ package jack
 
 import (
 	"os"
+	"path/filepath"
 	"testing"
 
 	jtesting "github.com/zoobzio/jack/testing"
@@ -16,7 +17,7 @@ func TestContainerName(t *testing.T) {
 
 func TestSessionMountsBasic(t *testing.T) {
 	profile := Profile{}
-	mounts := SessionMounts(profile, "/home/user/.jack/blue/vicky")
+	mounts := SessionMounts(profile, "blue", "/home/user/.jack/blue/vicky")
 
 	jtesting.AssertEqual(t, len(mounts), 2)
 	jtesting.AssertEqual(t, mounts[0].Target, "/root/.claude")
@@ -27,14 +28,13 @@ func TestSessionMountsBasic(t *testing.T) {
 }
 
 func TestSessionMountsWithSSH(t *testing.T) {
-	// Create a temporary SSH key pair.
 	dir := t.TempDir()
 	keyPath := dir + "/id_ed25519"
 	_ = os.WriteFile(keyPath, []byte("key"), 0o600)
 	_ = os.WriteFile(keyPath+".pub", []byte("pub"), 0o600)
 
 	profile := Profile{SSH: SSHConfig{Key: keyPath}}
-	mounts := SessionMounts(profile, "/workspace")
+	mounts := SessionMounts(profile, "blue", "/workspace")
 
 	jtesting.AssertEqual(t, len(mounts), 4)
 	jtesting.AssertEqual(t, mounts[2].Source, keyPath)
@@ -51,10 +51,29 @@ func TestSessionMountsSSHNoPub(t *testing.T) {
 	_ = os.WriteFile(keyPath, []byte("key"), 0o600)
 
 	profile := Profile{SSH: SSHConfig{Key: keyPath}}
-	mounts := SessionMounts(profile, "/workspace")
+	mounts := SessionMounts(profile, "blue", "/workspace")
 
-	// No .pub file, so only 3 mounts.
 	jtesting.AssertEqual(t, len(mounts), 3)
+}
+
+func TestSessionMountsWithSupportingRepos(t *testing.T) {
+	dataDir := t.TempDir()
+	env = Env{DataDir: dataDir, ConfigDir: t.TempDir()}
+
+	// Create a supporting repo directory.
+	wikiDir := filepath.Join(dataDir, "blue", "wiki")
+	_ = os.MkdirAll(wikiDir, 0o750)
+
+	profile := Profile{
+		Repos: []string{"git@github.com:zoobzio/wiki.git"},
+	}
+	mounts := SessionMounts(profile, "blue", filepath.Join(dataDir, "blue", "vicky"))
+
+	// 2 base mounts + 1 supporting repo.
+	jtesting.AssertEqual(t, len(mounts), 3)
+	jtesting.AssertEqual(t, mounts[2].Source, wikiDir)
+	jtesting.AssertEqual(t, mounts[2].Target, "/repos/wiki")
+	jtesting.AssertEqual(t, mounts[2].ReadOnly, false)
 }
 
 func TestSessionEnv(t *testing.T) {

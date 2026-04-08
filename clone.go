@@ -99,6 +99,37 @@ func runClone(ctx context.Context, url string, agents []string, force bool, clon
 			return fmt.Errorf("applying agent %s: %w", agentName, err)
 		}
 
+		if err := applyRepo(repo, dir); err != nil {
+			return fmt.Errorf("applying repo config for %s: %w", repo, err)
+		}
+
+		// Clone supporting repos specified in the agent profile.
+		profile := cfg.Profiles[agentName]
+		for _, supportURL := range profile.Repos {
+			supportRepo := repoName(supportURL)
+			if supportRepo == "" {
+				fmt.Fprintf(os.Stderr, "warning: cannot extract repo name from %q, skipping\n", supportURL)
+				continue
+			}
+			supportDir := filepath.Join(env.dataDir(), agentName, supportRepo)
+			if _, err := os.Stat(supportDir); err == nil {
+				if !force {
+					continue
+				}
+				if err := os.RemoveAll(supportDir); err != nil {
+					return fmt.Errorf("removing %s: %w", supportDir, err)
+				}
+			}
+			supportParent := filepath.Dir(supportDir)
+			if err := os.MkdirAll(supportParent, 0o750); err != nil {
+				return fmt.Errorf("creating directory %s: %w", supportParent, err)
+			}
+			if err := clone(supportURL, supportDir); err != nil {
+				return fmt.Errorf("cloning supporting repo %s for agent %s: %w", supportRepo, agentName, err)
+			}
+			fmt.Printf("cloned supporting repo %s for agent %s\n", supportRepo, agentName)
+		}
+
 		// Register Matrix user for this session, falling back to login if
 		// the user already exists (e.g. re-clone after a failed attempt).
 		username := agentName + "-" + repo

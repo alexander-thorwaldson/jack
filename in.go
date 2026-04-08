@@ -32,12 +32,12 @@ var inCmd = &cobra.Command{
 			HasSession, CreateSession, AttachSession,
 			sshAdd, readGHToken,
 			msg.AnnounceOnRepoChannel,
-			DockerRun, DockerStop,
+			DockerRun, DockerExec, DockerStop,
 		)
 	},
 }
 
-func runIn(agent, project string, loadReg RegistryLoader, selAgent AgentSelector, selProject ProjectSelector, hasSession SessionChecker, createSession SessionCreator, attach SessionAttacher, addKey KeyAdder, readGH GHTokenReader, announce RepoAnnouncer, runContainer ContainerRunner, stopContainer ContainerStopper) error {
+func runIn(agent, project string, loadReg RegistryLoader, selAgent AgentSelector, selProject ProjectSelector, hasSession SessionChecker, createSession SessionCreator, attach SessionAttacher, addKey KeyAdder, readGH GHTokenReader, announce RepoAnnouncer, runContainer ContainerRunner, execContainer ContainerExecer, stopContainer ContainerStopper) error {
 	reg, err := loadReg()
 	if err != nil {
 		return fmt.Errorf("loading registry: %w", err)
@@ -116,11 +116,20 @@ func runIn(agent, project string, loadReg RegistryLoader, selAgent AgentSelector
 
 	// Start the container.
 	containerName := ContainerName(agent, project)
-	mounts := SessionMounts(profile, dir)
+	mounts := SessionMounts(profile, agent, dir)
 	envVars := SessionEnv(agent, token, ghToken, cfg.Matrix.Homeserver, profile)
 
 	if err := runContainer(containerName, mounts, envVars); err != nil {
 		return fmt.Errorf("starting container: %w", err)
+	}
+
+	// Run dev.sh inside the container if present.
+	if hasDevSh(dir) {
+		fmt.Printf("running dev.sh for %s...\n", project)
+		if err := execContainer(containerName, []string{"sh", "/workspace/.jack/dev.sh"}); err != nil {
+			_ = stopContainer(containerName)
+			return fmt.Errorf("running dev.sh: %w", err)
+		}
 	}
 
 	// Build the tmux command as docker exec into the container.

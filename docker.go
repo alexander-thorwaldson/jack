@@ -39,6 +39,9 @@ type ContainerRunner func(name string, mounts []Mount, env map[string]string) er
 // ContainerStopper stops and removes a container.
 type ContainerStopper func(name string) error
 
+// ContainerExecer runs a command inside a running container.
+type ContainerExecer func(name string, cmd []string) error
+
 // ContainerChecker reports whether a container is running and/or exists.
 type ContainerChecker func(name string) (running bool, exists bool)
 
@@ -48,7 +51,8 @@ func ContainerName(agent, repo string) string {
 }
 
 // SessionMounts returns the standard bind mounts for a session container.
-func SessionMounts(profile Profile, repoDir string) []Mount {
+// Supporting repos from the agent profile are mounted at /repos/<name>.
+func SessionMounts(profile Profile, agent, repoDir string) []Mount {
 	home, _ := os.UserHomeDir()
 	mounts := []Mount{
 		{Source: filepath.Join(home, ".claude"), Target: "/root/.claude", ReadOnly: false},
@@ -60,6 +64,16 @@ func SessionMounts(profile Profile, repoDir string) []Mount {
 		pubPath := keyPath + ".pub"
 		if _, err := os.Stat(pubPath); err == nil {
 			mounts = append(mounts, Mount{Source: pubPath, Target: "/root/.ssh/id_ed25519.pub", ReadOnly: true})
+		}
+	}
+	for _, repoURL := range profile.Repos {
+		name := repoName(repoURL)
+		if name == "" {
+			continue
+		}
+		supportDir := filepath.Join(env.dataDir(), agent, name)
+		if _, err := os.Stat(supportDir); err == nil {
+			mounts = append(mounts, Mount{Source: supportDir, Target: "/repos/" + name, ReadOnly: false})
 		}
 	}
 	return mounts
@@ -144,6 +158,20 @@ func DockerRun(name string, mounts []Mount, envVars map[string]string) error {
 	cmd.Stderr = &stderr
 	if err := cmd.Run(); err != nil {
 		return fmt.Errorf("docker run: %w: %s", err, stderr.String())
+	}
+	return nil
+}
+
+// DockerExec runs a command inside a running container, streaming output.
+func DockerExec(name string, cmdArgs []string) error {
+	args := make([]string, 0, 2+len(cmdArgs))
+	args = append(args, "exec", name)
+	args = append(args, cmdArgs...)
+	cmd := exec.CommandContext(context.Background(), "docker", args...) // #nosec G204 -- args from internal config
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+	if err := cmd.Run(); err != nil {
+		return fmt.Errorf("docker exec: %w", err)
 	}
 	return nil
 }
