@@ -41,7 +41,7 @@ var noopContainerStopper ContainerStopper = func(_ string) error { return nil }
 
 func TestRunInEmptyRegistry(t *testing.T) {
 	err := runIn("", "", stubRegistry(), failSelector, failProjectSelector,
-		noopChecker, noopCreator, noopAttacher, noopAdder, noopGHReader, noopAnnounceRepo,
+		noopChecker, noopCreator, noopAttacher, noopGHReader, noopAnnounceRepo,
 		noopContainerRunner, noopContainerExecer, noopContainerStopper)
 	jtesting.AssertError(t, err)
 	jtesting.AssertEqual(t, strings.Contains(err.Error(), "no projects cloned"), true)
@@ -50,7 +50,7 @@ func TestRunInEmptyRegistry(t *testing.T) {
 func TestRunInNoProjectsForAgent(t *testing.T) {
 	reg := stubRegistry(RegistryEntry{Agent: "blue", Repo: "vicky"})
 	err := runIn("red", "", reg, failSelector, failProjectSelector,
-		noopChecker, noopCreator, noopAttacher, noopAdder, noopGHReader, noopAnnounceRepo,
+		noopChecker, noopCreator, noopAttacher, noopGHReader, noopAnnounceRepo,
 		noopContainerRunner, noopContainerExecer, noopContainerStopper)
 	jtesting.AssertError(t, err)
 	jtesting.AssertEqual(t, strings.Contains(err.Error(), "no projects cloned for agent"), true)
@@ -69,7 +69,7 @@ func TestRunInAttachesExistingSession(t *testing.T) {
 	}
 
 	err := runIn("blue", "vicky", reg, failSelector, failProjectSelector,
-		existsChecker, noopCreator, attacher, noopAdder, noopGHReader, noopAnnounceRepo,
+		existsChecker, noopCreator, attacher, noopGHReader, noopAnnounceRepo,
 		noopContainerRunner, noopContainerExecer, noopContainerStopper)
 	jtesting.AssertNoError(t, err)
 	jtesting.AssertEqual(t, attachedName, "blue-vicky")
@@ -92,7 +92,7 @@ func TestRunInCreatesAndAttaches(t *testing.T) {
 	}
 
 	err := runIn("blue", "vicky", reg, failSelector, failProjectSelector,
-		noopChecker, creator, attacher, noopAdder, noopGHReader, noopAnnounceRepo,
+		noopChecker, creator, attacher, noopGHReader, noopAnnounceRepo,
 		noopContainerRunner, noopContainerExecer, noopContainerStopper)
 	jtesting.AssertNoError(t, err)
 	jtesting.AssertEqual(t, createdName, "blue-vicky")
@@ -113,7 +113,7 @@ func TestRunInAutoSelectsSingleAgent(t *testing.T) {
 
 	// No agent or project specified — should auto-select the only agent and project.
 	err := runIn("", "", reg, failSelector, failProjectSelector,
-		noopChecker, noopCreator, attacher, noopAdder, noopGHReader, noopAnnounceRepo,
+		noopChecker, noopCreator, attacher, noopGHReader, noopAnnounceRepo,
 		noopContainerRunner, noopContainerExecer, noopContainerStopper)
 	jtesting.AssertNoError(t, err)
 	jtesting.AssertEqual(t, attachedName, "blue-vicky")
@@ -121,7 +121,7 @@ func TestRunInAutoSelectsSingleAgent(t *testing.T) {
 
 func TestRunInPromptsForAgent(t *testing.T) {
 	newTestConfig()
-	cfg.Profiles["red"] = Profile{Git: GitConfig{Name: "Red"}}
+	cfg.Agents["red"] = AgentConfig{}
 	env = Env{DataDir: t.TempDir(), ConfigDir: t.TempDir()}
 
 	reg := stubRegistry(
@@ -136,7 +136,7 @@ func TestRunInPromptsForAgent(t *testing.T) {
 	}
 
 	err := runIn("", "", reg, agentSel, failProjectSelector,
-		noopChecker, noopCreator, noopAttacher, noopAdder, noopGHReader, noopAnnounceRepo,
+		noopChecker, noopCreator, noopAttacher, noopGHReader, noopAnnounceRepo,
 		noopContainerRunner, noopContainerExecer, noopContainerStopper)
 	jtesting.AssertNoError(t, err)
 	jtesting.AssertEqual(t, selectedAgent, "red")
@@ -158,7 +158,7 @@ func TestRunInPromptsForProject(t *testing.T) {
 	}
 
 	err := runIn("blue", "", reg, failSelector, projSel,
-		noopChecker, noopCreator, noopAttacher, noopAdder, noopGHReader, noopAnnounceRepo,
+		noopChecker, noopCreator, noopAttacher, noopGHReader, noopAnnounceRepo,
 		noopContainerRunner, noopContainerExecer, noopContainerStopper)
 	jtesting.AssertNoError(t, err)
 	jtesting.AssertEqual(t, selectedProject, "flux")
@@ -186,7 +186,7 @@ func TestRunInReadsToken(t *testing.T) {
 	}
 
 	err := runIn("blue", "vicky", reg, failSelector, failProjectSelector,
-		noopChecker, creator, noopAttacher, noopAdder, noopGHReader, noopAnnounceRepo,
+		noopChecker, creator, noopAttacher, noopGHReader, noopAnnounceRepo,
 		runner, noopContainerExecer, noopContainerStopper)
 	jtesting.AssertNoError(t, err)
 	jtesting.AssertEqual(t, containerEnv["JACK_MSG_TOKEN"], "tok_plaintext")
@@ -216,7 +216,7 @@ func TestRunInReadsGHToken(t *testing.T) {
 	}
 
 	err := runIn("blue", "vicky", reg, failSelector, failProjectSelector,
-		noopChecker, creator, noopAttacher, noopAdder, ghReader, noopAnnounceRepo,
+		noopChecker, creator, noopAttacher, ghReader, noopAnnounceRepo,
 		runner, noopContainerExecer, noopContainerStopper)
 	jtesting.AssertNoError(t, err)
 	jtesting.AssertEqual(t, containerEnv["GH_TOKEN"], "ghp_testtoken")
@@ -229,7 +229,7 @@ func TestRunInUnknownAgentProfile(t *testing.T) {
 	reg := stubRegistry(RegistryEntry{Agent: "unknown", Repo: "vicky"})
 
 	err := runIn("unknown", "vicky", reg, failSelector, failProjectSelector,
-		noopChecker, noopCreator, noopAttacher, noopAdder, noopGHReader, noopAnnounceRepo,
+		noopChecker, noopCreator, noopAttacher, noopGHReader, noopAnnounceRepo,
 		noopContainerRunner, noopContainerExecer, noopContainerStopper)
 	jtesting.AssertError(t, err)
 	jtesting.AssertEqual(t, strings.Contains(err.Error(), "unknown agent"), true)
@@ -256,7 +256,7 @@ func TestRunInAnnouncesOnRepoChannel(t *testing.T) {
 	}
 
 	err := runIn("blue", "vicky", reg, failSelector, failProjectSelector,
-		noopChecker, noopCreator, noopAttacher, noopAdder, noopGHReader, announcer,
+		noopChecker, noopCreator, noopAttacher, noopGHReader, announcer,
 		noopContainerRunner, noopContainerExecer, noopContainerStopper)
 	jtesting.AssertNoError(t, err)
 	jtesting.AssertEqual(t, announcedToken, "tok_session")
@@ -283,7 +283,7 @@ func TestRunInStartsContainer(t *testing.T) {
 	}
 
 	err := runIn("blue", "vicky", reg, failSelector, failProjectSelector,
-		noopChecker, creator, noopAttacher, noopAdder, noopGHReader, noopAnnounceRepo,
+		noopChecker, creator, noopAttacher, noopGHReader, noopAnnounceRepo,
 		runner, noopContainerExecer, noopContainerStopper)
 	jtesting.AssertNoError(t, err)
 	jtesting.AssertEqual(t, containerName, "jack-blue-vicky")
@@ -308,7 +308,7 @@ func TestRunInCleansUpContainerOnTmuxFailure(t *testing.T) {
 	}
 
 	err := runIn("blue", "vicky", reg, failSelector, failProjectSelector,
-		noopChecker, creator, noopAttacher, noopAdder, noopGHReader, noopAnnounceRepo,
+		noopChecker, creator, noopAttacher, noopGHReader, noopAnnounceRepo,
 		noopContainerRunner, noopContainerExecer, stopper)
 	jtesting.AssertError(t, err)
 	jtesting.AssertEqual(t, stoppedContainer, "jack-blue-vicky")

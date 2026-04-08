@@ -62,8 +62,8 @@ func runClone(ctx context.Context, url string, agents []string, force bool, clon
 			return err
 		}
 
-		if _, ok := cfg.Profiles[agentName]; !ok {
-			return fmt.Errorf("unknown agent %q (no matching profile)", agentName)
+		if _, ok := cfg.Agents[agentName]; !ok {
+			return fmt.Errorf("unknown agent %q", agentName)
 		}
 
 		dir := filepath.Join(env.dataDir(), agentName, repo)
@@ -103,9 +103,9 @@ func runClone(ctx context.Context, url string, agents []string, force bool, clon
 			return fmt.Errorf("applying repo config for %s: %w", repo, err)
 		}
 
-		// Clone supporting repos specified in the agent profile.
-		profile := cfg.Profiles[agentName]
-		for _, supportURL := range profile.Repos {
+		// Clone supporting repos specified in the agent config.
+		agentCfg := cfg.Agents[agentName]
+		for _, supportURL := range agentCfg.Repos {
 			supportRepo := repoName(supportURL)
 			if supportRepo == "" {
 				fmt.Fprintf(os.Stderr, "warning: cannot extract repo name from %q, skipping\n", supportURL)

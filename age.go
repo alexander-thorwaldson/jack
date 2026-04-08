@@ -6,8 +6,8 @@ import (
 	"strings"
 )
 
-// GHTokenReader reads a plaintext GitHub token for an agent.
-type GHTokenReader func(agent string) (string, error)
+// GHTokenReader reads a plaintext GitHub token for a project.
+type GHTokenReader func(project string) (string, error)
 
 // TokenWriter stores a plaintext token to disk.
 type TokenWriter func(token, outPath string) error
@@ -32,12 +32,12 @@ func readToken(repoDir string) (string, error) {
 	return strings.TrimSpace(string(data)), nil
 }
 
-func ghTokenPath(agentName string) string {
-	return filepath.Join(env.configDir(), "agents", agentName, ".github-token")
+func ghTokenPath(project string) string {
+	return filepath.Join(env.configDir(), "repos", project, ".github-token")
 }
 
-func readGHToken(agent string) (string, error) {
-	data, err := os.ReadFile(ghTokenPath(agent))
+func readGHToken(project string) (string, error) {
+	data, err := os.ReadFile(ghTokenPath(project))
 	if err != nil {
 		return "", nil
 	}

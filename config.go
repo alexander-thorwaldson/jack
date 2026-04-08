@@ -11,8 +11,14 @@ import (
 
 // Config represents the top-level YAML configuration.
 type Config struct {
-	Profiles map[string]Profile `yaml:"profiles"`
-	Matrix   MatrixConfig       `yaml:"matrix"`
+	Agents map[string]AgentConfig `yaml:"agents"`
+	Matrix MatrixConfig           `yaml:"matrix"`
+	Git    GitConfig              `yaml:"git"`
+}
+
+// AgentConfig holds per-agent settings.
+type AgentConfig struct {
+	Repos []string `yaml:"repos"`
 }
 
 // MatrixConfig holds Matrix homeserver connection settings.
@@ -21,38 +27,20 @@ type MatrixConfig struct {
 	RegistrationToken string `yaml:"registration_token"`
 }
 
-// Profile represents a git/GitHub/SSH identity.
-type Profile struct {
-	Git    GitConfig    `yaml:"git"`
-	GitHub GitHubConfig `yaml:"github"`
-	SSH    SSHConfig    `yaml:"ssh"`
-	Repos  []string     `yaml:"repos"`
-}
-
-// GitConfig holds git identity settings.
+// GitConfig holds the operator's git identity.
 type GitConfig struct {
 	Name  string `yaml:"name"`
 	Email string `yaml:"email"`
 }
 
-// GitHubConfig holds GitHub account settings.
-type GitHubConfig struct {
-	User string `yaml:"user"`
-}
-
-// SSHConfig holds SSH key settings.
-type SSHConfig struct {
-	Key string `yaml:"key"`
-}
-
 // Validate checks the Config for internal consistency.
 func (c Config) Validate() error {
-	if len(c.Profiles) == 0 {
-		return fmt.Errorf("at least one profile must be defined")
+	if len(c.Agents) == 0 {
+		return fmt.Errorf("at least one agent must be defined")
 	}
-	for name := range c.Profiles {
+	for name := range c.Agents {
 		if strings.Contains(name, "-") {
-			return fmt.Errorf("profile name %q must not contain hyphens", name)
+			return fmt.Errorf("agent name %q must not contain hyphens", name)
 		}
 	}
 	return nil

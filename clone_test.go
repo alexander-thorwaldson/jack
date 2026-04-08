@@ -58,7 +58,7 @@ func setupAgentFixtures(t *testing.T, skills []string) {
 	dataDir := t.TempDir()
 	env = Env{ConfigDir: configDir, DataDir: dataDir}
 
-	for name := range cfg.Profiles {
+	for name := range cfg.Agents {
 		agentDir := filepath.Join(configDir, "agents", name)
 		agentSkillsDir := filepath.Join(agentDir, "skills")
 		_ = os.MkdirAll(agentSkillsDir, 0o750)
@@ -113,9 +113,9 @@ func TestRunCloneSuccess(t *testing.T) {
 
 func TestRunCloneMultipleAgents(t *testing.T) {
 	cfg = Config{
-		Profiles: map[string]Profile{
-			"blue": {Git: GitConfig{Name: "Rockhopper", Email: "rock@example.com"}},
-			"red":  {Git: GitConfig{Name: "Mother", Email: "mother@example.com"}},
+		Agents: map[string]AgentConfig{
+			"blue": {},
+			"red":  {},
 		},
 	}
 	setupAgentFixtures(t, []string{"commit"})

@@ -51,58 +51,52 @@ func ContainerName(agent, repo string) string {
 }
 
 // SessionMounts returns the standard bind mounts for a session container.
-// Supporting repos from the agent profile are mounted at /repos/<name>.
-func SessionMounts(profile Profile, agent, repoDir string) []Mount {
+// Supporting repos from the agent config are mounted at /repos/<name>.
+func SessionMounts(c Config, agent, repoDir string) []Mount {
 	home, _ := os.UserHomeDir()
 	mounts := []Mount{
 		{Source: filepath.Join(home, ".claude"), Target: "/root/.claude", ReadOnly: false},
 		{Source: repoDir, Target: "/workspace", ReadOnly: false},
 	}
-	if profile.SSH.Key != "" {
-		keyPath := expandHome(profile.SSH.Key)
-		mounts = append(mounts, Mount{Source: keyPath, Target: "/root/.ssh/id_ed25519", ReadOnly: true})
-		pubPath := keyPath + ".pub"
-		if _, err := os.Stat(pubPath); err == nil {
-			mounts = append(mounts, Mount{Source: pubPath, Target: "/root/.ssh/id_ed25519.pub", ReadOnly: true})
-		}
-	}
-	for _, repoURL := range profile.Repos {
-		name := repoName(repoURL)
-		if name == "" {
-			continue
-		}
-		supportDir := filepath.Join(env.dataDir(), agent, name)
-		if _, err := os.Stat(supportDir); err == nil {
-			mounts = append(mounts, Mount{Source: supportDir, Target: "/repos/" + name, ReadOnly: false})
+	if ac, ok := c.Agents[agent]; ok {
+		for _, repoURL := range ac.Repos {
+			name := repoName(repoURL)
+			if name == "" {
+				continue
+			}
+			supportDir := filepath.Join(env.dataDir(), agent, name)
+			if _, err := os.Stat(supportDir); err == nil {
+				mounts = append(mounts, Mount{Source: supportDir, Target: "/repos/" + name, ReadOnly: false})
+			}
 		}
 	}
 	return mounts
 }
 
 // SessionEnv returns the environment variables for a session container.
-func SessionEnv(agent, token, ghToken, homeserver string, profile Profile) map[string]string {
-	env := make(map[string]string)
+func SessionEnv(c Config, agent, token, ghToken string) map[string]string {
+	e := make(map[string]string)
 	if agent != "" {
-		env["JACK_AGENT"] = agent
+		e["JACK_AGENT"] = agent
 	}
 	if token != "" {
-		env["JACK_MSG_TOKEN"] = token
+		e["JACK_MSG_TOKEN"] = token
 	}
 	if ghToken != "" {
-		env["GH_TOKEN"] = ghToken
+		e["GH_TOKEN"] = ghToken
 	}
-	if homeserver != "" {
-		env["JACK_HOMESERVER"] = homeserver
+	if c.Matrix.Homeserver != "" {
+		e["JACK_HOMESERVER"] = c.Matrix.Homeserver
 	}
-	if profile.Git.Name != "" {
-		env["GIT_AUTHOR_NAME"] = profile.Git.Name
-		env["GIT_COMMITTER_NAME"] = profile.Git.Name
+	if c.Git.Name != "" {
+		e["GIT_AUTHOR_NAME"] = c.Git.Name
+		e["GIT_COMMITTER_NAME"] = c.Git.Name
 	}
-	if profile.Git.Email != "" {
-		env["GIT_AUTHOR_EMAIL"] = profile.Git.Email
-		env["GIT_COMMITTER_EMAIL"] = profile.Git.Email
+	if c.Git.Email != "" {
+		e["GIT_AUTHOR_EMAIL"] = c.Git.Email
+		e["GIT_COMMITTER_EMAIL"] = c.Git.Email
 	}
-	return env
+	return e
 }
 
 // DockerBuild cross-compiles the msg binary and builds the jack base image.

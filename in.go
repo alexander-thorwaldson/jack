@@ -30,14 +30,14 @@ var inCmd = &cobra.Command{
 			loadRegistry,
 			selectAgent, selectProject,
 			HasSession, CreateSession, AttachSession,
-			sshAdd, readGHToken,
+			readGHToken,
 			msg.AnnounceOnRepoChannel,
 			DockerRun, DockerExec, DockerStop,
 		)
 	},
 }
 
-func runIn(agent, project string, loadReg RegistryLoader, selAgent AgentSelector, selProject ProjectSelector, hasSession SessionChecker, createSession SessionCreator, attach SessionAttacher, addKey KeyAdder, readGH GHTokenReader, announce RepoAnnouncer, runContainer ContainerRunner, execContainer ContainerExecer, stopContainer ContainerStopper) error {
+func runIn(agent, project string, loadReg RegistryLoader, selAgent AgentSelector, selProject ProjectSelector, hasSession SessionChecker, createSession SessionCreator, attach SessionAttacher, readGH GHTokenReader, announce RepoAnnouncer, runContainer ContainerRunner, execContainer ContainerExecer, stopContainer ContainerStopper) error {
 	reg, err := loadReg()
 	if err != nil {
 		return fmt.Errorf("loading registry: %w", err)
@@ -85,24 +85,16 @@ func runIn(agent, project string, loadReg RegistryLoader, selAgent AgentSelector
 		return attach(name)
 	}
 
-	// Create a new session.
-	profile, ok := cfg.Profiles[agent]
-	if !ok {
-		return fmt.Errorf("unknown agent %q (no matching profile)", agent)
-	}
-
-	if profile.SSH.Key != "" {
-		key := expandHome(profile.SSH.Key)
-		if addErr := addKey(key); addErr != nil {
-			return fmt.Errorf("ssh-add %s: %w", key, addErr)
-		}
+	// Verify agent exists in config.
+	if _, ok := cfg.Agents[agent]; !ok {
+		return fmt.Errorf("unknown agent %q", agent)
 	}
 
 	// Read Matrix token.
 	token, _ := readToken(dir)
 
-	// Read plaintext GitHub token.
-	ghToken, err := readGH(agent)
+	// Read GitHub token (per-repo).
+	ghToken, err := readGH(project)
 	if err != nil {
 		return fmt.Errorf("reading github token: %w", err)
 	}
@@ -116,8 +108,8 @@ func runIn(agent, project string, loadReg RegistryLoader, selAgent AgentSelector
 
 	// Start the container.
 	containerName := ContainerName(agent, project)
-	mounts := SessionMounts(profile, agent, dir)
-	envVars := SessionEnv(agent, token, ghToken, cfg.Matrix.Homeserver, profile)
+	mounts := SessionMounts(cfg, agent, dir)
+	envVars := SessionEnv(cfg, agent, token, ghToken)
 
 	if err := runContainer(containerName, mounts, envVars); err != nil {
 		return fmt.Errorf("starting container: %w", err)

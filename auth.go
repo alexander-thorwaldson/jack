@@ -11,34 +11,24 @@ import (
 )
 
 func init() {
-	authCmd.Flags().StringP("agent", "a", "", "agent name (required)")
-	_ = authCmd.MarkFlagRequired("agent")
-	rootCmd.AddCommand(authCmd)
+	loadCmd.Flags().StringP("project", "p", "", "project name (required)")
+	_ = loadCmd.MarkFlagRequired("project")
+	rootCmd.AddCommand(loadCmd)
 }
 
-var authCmd = &cobra.Command{
-	Use:   "auth",
-	Short: "Store a GitHub token for an agent",
-	Long:  "Store a GitHub personal access token for an agent profile.\nThe token is written to the agent's config directory and used to set GH_TOKEN in sessions.",
+var loadCmd = &cobra.Command{
+	Use:   "load",
+	Short: "Store a GitHub token for a project",
+	Long:  "Store a GitHub personal access token scoped to a project.\nThe token is used to set GH_TOKEN in sessions for all agents working on this project.",
 	Args:  cobra.NoArgs,
 	RunE: func(cmd *cobra.Command, _ []string) error {
-		agent, _ := cmd.Flags().GetString("agent")
-		return runAuth(agent)
+		project, _ := cmd.Flags().GetString("project")
+		return runLoad(project)
 	},
 }
 
-func runAuth(agent string) error {
-	profile, ok := cfg.Profiles[agent]
-	if !ok {
-		return fmt.Errorf("unknown agent %q (no matching profile)", agent)
-	}
-
-	label := agent
-	if profile.GitHub.User != "" {
-		label = fmt.Sprintf("%s (%s)", agent, profile.GitHub.User)
-	}
-
-	fmt.Printf("Enter GitHub personal access token for %s: ", label)
+func runLoad(project string) error {
+	fmt.Printf("Enter GitHub personal access token for %s: ", project)
 	reader := bufio.NewReader(os.Stdin)
 	token, err := reader.ReadString('\n')
 	if err != nil {
@@ -49,7 +39,7 @@ func runAuth(agent string) error {
 		return fmt.Errorf("token must not be empty")
 	}
 
-	outPath := ghTokenPath(agent)
+	outPath := ghTokenPath(project)
 	dir := filepath.Dir(outPath)
 	if err := os.MkdirAll(dir, 0o750); err != nil {
 		return fmt.Errorf("creating directory %s: %w", dir, err)
@@ -59,6 +49,6 @@ func runAuth(agent string) error {
 		return fmt.Errorf("writing github token: %w", err)
 	}
 
-	fmt.Printf("GitHub token stored for agent %s at %s\n", agent, outPath)
+	fmt.Printf("GitHub token stored for project %s at %s\n", project, outPath)
 	return nil
 }
