@@ -31,17 +31,22 @@ var cloneCmd = &cobra.Command{
 		agents, _ := cmd.Flags().GetStringSlice("agent")
 		force, _ := cmd.Flags().GetBool("force")
 		client := msg.NewClient(msg.Homeserver, "")
-		return runClone(args[0], agents, force, gitClone, HasSession, KillSession, client.Register, client.Login, writeToken, loadRegistry, saveRegistry, msg.ProvisionRepoChannel)
+		return runClone(cmd.Context(), args[0], agents, force, gitClone, HasSession, KillSession, client.Register, client.Login, writeToken, loadRegistry, saveRegistry, msg.ProvisionRepoChannel, DockerBuild)
 	},
 }
 
 // RepoProvisioner creates a per-repo Matrix channel and invites other agents.
 type RepoProvisioner func(token, repo string, inviteUserIDs []string) error
 
-func runClone(url string, agents []string, force bool, clone Cloner, hasSession SessionChecker, kill SessionKiller, register msg.Registerer, login msg.Authenticator, storeToken TokenWriter, loadReg RegistryLoader, saveReg RegistrySaver, provisionRepo RepoProvisioner) error {
+func runClone(ctx context.Context, url string, agents []string, force bool, clone Cloner, hasSession SessionChecker, kill SessionKiller, register msg.Registerer, login msg.Authenticator, storeToken TokenWriter, loadReg RegistryLoader, saveReg RegistrySaver, provisionRepo RepoProvisioner, buildImage ImageBuilder) error {
 	repo := repoName(url)
 	if repo == "" {
 		return fmt.Errorf("cannot extract repo name from %q", url)
+	}
+
+	// Build the jack base image.
+	if err := buildImage(ctx); err != nil {
+		return fmt.Errorf("building jack image: %w", err)
 	}
 
 	configDir := env.configDir()

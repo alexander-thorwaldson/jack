@@ -108,7 +108,7 @@ func TestTokenFromEnvMissing(t *testing.T) {
 func TestTokenFromEnvFile(t *testing.T) {
 	t.Setenv("JACK_MSG_TOKEN", "")
 	dir := t.TempDir()
-	_ = os.WriteFile(filepath.Join(dir, ".env"), []byte("export JACK_MSG_TOKEN=tok_file\nexport JACK_TEAM=blue\n"), 0o600)
+	_ = os.WriteFile(filepath.Join(dir, ".env"), []byte("export JACK_MSG_TOKEN=tok_file\nexport JACK_AGENT=blue\n"), 0o600)
 	t.Chdir(dir)
 	token, err := TokenFromEnv()
 	jtesting.AssertNoError(t, err)

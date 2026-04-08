@@ -22,11 +22,11 @@ var statusCmd = &cobra.Command{
 	Short: "Show agent and session status",
 	Args:  cobra.NoArgs,
 	RunE: func(_ *cobra.Command, _ []string) error {
-		return runStatus(os.Stdout, loadRegistry, ListSessions)
+		return runStatus(os.Stdout, loadRegistry, ListSessions, DockerCheck)
 	},
 }
 
-func runStatus(w io.Writer, loadReg RegistryLoader, list Lister) error {
+func runStatus(w io.Writer, loadReg RegistryLoader, list Lister, checkContainer ContainerChecker) error {
 	reg, err := loadReg()
 	if err != nil {
 		return fmt.Errorf("loading registry: %w", err)
@@ -56,21 +56,36 @@ func runStatus(w io.Writer, loadReg RegistryLoader, list Lister) error {
 		_, _ = fmt.Fprintln(w, agent)
 
 		tw := tabwriter.NewWriter(w, 0, 0, 2, ' ', 0)
-		_, _ = fmt.Fprintln(tw, "PROJECT\tSESSION\tSTATUS")
+		_, _ = fmt.Fprintln(tw, "PROJECT\tSESSION\tSTATUS\tCONTAINER")
 
 		for _, entry := range reg.ForAgent(agent) {
 			name := SessionName(agent, entry.Repo)
+			containerName := ContainerName(agent, entry.Repo)
+			running, exists := checkContainer(containerName)
+			cStatus := containerStatus(running, exists)
+
 			if s, ok := sessionMap[name]; ok {
 				info := SessionInfo{TmuxSession: s, Agent: agent, Repo: entry.Repo}
-				_, _ = fmt.Fprintf(tw, "%s\t%s\t%s\n", entry.Repo, name, sessionStatus(info))
+				_, _ = fmt.Fprintf(tw, "%s\t%s\t%s\t%s\n", entry.Repo, name, sessionStatus(info), cStatus)
 			} else {
-				_, _ = fmt.Fprintf(tw, "%s\t-\tnot running\n", entry.Repo)
+				_, _ = fmt.Fprintf(tw, "%s\t-\tnot running\t%s\n", entry.Repo, cStatus)
 			}
 		}
 		_ = tw.Flush()
 	}
 
 	return nil
+}
+
+func containerStatus(running, exists bool) string {
+	switch {
+	case running:
+		return "running"
+	case exists:
+		return "stopped"
+	default:
+		return "-"
+	}
 }
 
 func sessionStatus(info SessionInfo) string {

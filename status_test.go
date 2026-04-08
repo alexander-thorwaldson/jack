@@ -11,11 +11,13 @@ import (
 	jtesting "github.com/zoobzio/jack/testing"
 )
 
+var noopContainerChecker ContainerChecker = func(_ string) (bool, bool) { return false, false }
+
 func TestRunStatusEmptyRegistry(t *testing.T) {
 	var buf bytes.Buffer
 	err := runStatus(&buf, stubRegistry(), func() ([]TmuxSession, error) {
 		return nil, nil
-	})
+	}, noopContainerChecker)
 	jtesting.AssertNoError(t, err)
 	jtesting.AssertEqual(t, strings.Contains(buf.String(), "no projects cloned"), true)
 }
@@ -29,7 +31,7 @@ func TestRunStatusNoSessions(t *testing.T) {
 	var buf bytes.Buffer
 	err := runStatus(&buf, reg, func() ([]TmuxSession, error) {
 		return nil, nil
-	})
+	}, noopContainerChecker)
 	jtesting.AssertNoError(t, err)
 
 	output := buf.String()
@@ -44,6 +46,16 @@ func TestRunStatusWithSessions(t *testing.T) {
 		RegistryEntry{Agent: "blue", Repo: "flux"},
 		RegistryEntry{Agent: "red", Repo: "sentinel"},
 	)
+
+	containerChecker := func(name string) (bool, bool) {
+		if name == "jack-blue-vicky" {
+			return true, true
+		}
+		if name == "jack-blue-flux" {
+			return false, true
+		}
+		return false, false
+	}
 
 	var buf bytes.Buffer
 	err := runStatus(&buf, reg, func() ([]TmuxSession, error) {
@@ -73,7 +85,7 @@ func TestRunStatusWithSessions(t *testing.T) {
 				Windows:  1,
 			},
 		}, nil
-	})
+	}, containerChecker)
 	jtesting.AssertNoError(t, err)
 
 	output := buf.String()
@@ -82,6 +94,9 @@ func TestRunStatusWithSessions(t *testing.T) {
 	jtesting.AssertEqual(t, strings.Contains(output, "blue-flux"), true)
 	jtesting.AssertEqual(t, strings.Contains(output, "attached"), true)
 	jtesting.AssertEqual(t, strings.Contains(output, "active"), true)
+	// Container states.
+	jtesting.AssertEqual(t, strings.Contains(output, "running"), true)
+	jtesting.AssertEqual(t, strings.Contains(output, "stopped"), true)
 	// Red agent project not running.
 	jtesting.AssertEqual(t, strings.Contains(output, "red"), true)
 	jtesting.AssertEqual(t, strings.Contains(output, "not running"), true)

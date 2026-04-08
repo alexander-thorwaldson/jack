@@ -2,10 +2,8 @@ package jack
 
 import (
 	"context"
-	"fmt"
 	"os"
 	"os/exec"
-	"strings"
 )
 
 // SessionChecker reports whether a tmux session exists.
@@ -31,36 +29,8 @@ func sshAdd(key string) error {
 	return cmd.Run()
 }
 
-func buildShellCmd(profile Profile, dir string) string {
-	var parts []string
-
-	// Set git identity.
-	if profile.Git.Name != "" {
-		parts = append(parts, fmt.Sprintf("git config user.name %q", profile.Git.Name))
-	}
-	if profile.Git.Email != "" {
-		parts = append(parts, fmt.Sprintf("git config user.email %q", profile.Git.Email))
-	}
-
-	// Source the .env file for session variables.
-	parts = append(parts, fmt.Sprintf("set -a && . %s/.env && set +a", dir))
-
-	parts = append(parts, "exec claude --dangerously-skip-permissions")
-	return strings.Join(parts, " && ")
-}
-
-// buildDotEnv creates the content for a .env file containing session
-// environment variables.
-func buildDotEnv(agent, token, ghToken string) string {
-	var lines []string
-	if agent != "" {
-		lines = append(lines, "export JACK_AGENT="+agent)
-	}
-	if token != "" {
-		lines = append(lines, "export JACK_MSG_TOKEN="+token)
-	}
-	if ghToken != "" {
-		lines = append(lines, "export GH_TOKEN="+ghToken)
-	}
-	return strings.Join(lines, "\n") + "\n"
+// buildContainerShellCmd builds the command to run inside a Docker container.
+// Git identity is set via environment variables, so only claude is needed.
+func buildContainerShellCmd() string {
+	return "exec claude --dangerously-skip-permissions"
 }

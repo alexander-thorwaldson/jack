@@ -2,8 +2,6 @@ package jack
 
 import (
 	"fmt"
-	"os"
-	"path/filepath"
 	"strings"
 
 	"github.com/spf13/cobra"
@@ -27,18 +25,9 @@ func defaultDepartureAnnouncer(token, repo, message string) error {
 }
 
 func defaultTokenReader(agent, project string) string {
-	envPath := filepath.Clean(filepath.Join(env.dataDir(), agent, project, ".env"))
-	data, err := os.ReadFile(envPath)
-	if err != nil {
-		return ""
-	}
-	for _, line := range strings.Split(string(data), "\n") {
-		line = strings.TrimPrefix(line, "export ")
-		if k, v, ok := strings.Cut(line, "="); ok && k == "JACK_MSG_TOKEN" {
-			return v
-		}
-	}
-	return ""
+	dir := fmt.Sprintf("%s/%s/%s", env.dataDir(), agent, project)
+	token, _ := readToken(dir)
+	return token
 }
 
 // parseSessionName splits a session name into agent and project.
@@ -63,11 +52,11 @@ var outCmd = &cobra.Command{
 		}
 		agent, _ := cmd.Flags().GetString("agent")
 		project, _ := cmd.Flags().GetString("project")
-		return runOut(name, agent, project, HasSession, KillSession, defaultTokenReader, defaultDepartureAnnouncer)
+		return runOut(name, agent, project, HasSession, KillSession, defaultTokenReader, defaultDepartureAnnouncer, DockerStop)
 	},
 }
 
-func runOut(name, agent, project string, hasSession SessionChecker, kill SessionKiller, readToken TokenReader, announce DepartureAnnouncer) error {
+func runOut(name, agent, project string, hasSession SessionChecker, kill SessionKiller, readToken TokenReader, announce DepartureAnnouncer, stopContainer ContainerStopper) error {
 	if name == "" && agent != "" && project != "" {
 		name = SessionName(agent, project)
 	}
@@ -91,6 +80,13 @@ func runOut(name, agent, project string, hasSession SessionChecker, kill Session
 	if err := kill(name); err != nil {
 		return err
 	}
+
+	// Stop and remove the container.
+	if agent != "" && project != "" {
+		containerName := ContainerName(agent, project)
+		_ = stopContainer(containerName)
+	}
+
 	fmt.Printf("killed session %s\n", name)
 	return nil
 }

@@ -32,11 +32,12 @@ var inCmd = &cobra.Command{
 			HasSession, CreateSession, AttachSession,
 			sshAdd, readGHToken,
 			msg.AnnounceOnRepoChannel,
+			DockerRun, DockerStop,
 		)
 	},
 }
 
-func runIn(agent, project string, loadReg RegistryLoader, selAgent AgentSelector, selProject ProjectSelector, hasSession SessionChecker, createSession SessionCreator, attach SessionAttacher, addKey KeyAdder, readGH GHTokenReader, announce RepoAnnouncer) error {
+func runIn(agent, project string, loadReg RegistryLoader, selAgent AgentSelector, selProject ProjectSelector, hasSession SessionChecker, createSession SessionCreator, attach SessionAttacher, addKey KeyAdder, readGH GHTokenReader, announce RepoAnnouncer, runContainer ContainerRunner, stopContainer ContainerStopper) error {
 	reg, err := loadReg()
 	if err != nil {
 		return fmt.Errorf("loading registry: %w", err)
@@ -113,31 +114,21 @@ func runIn(agent, project string, loadReg RegistryLoader, selAgent AgentSelector
 		}
 	}
 
-	shellCmd := buildShellCmd(profile, dir)
+	// Start the container.
+	containerName := ContainerName(agent, project)
+	mounts := SessionMounts(profile, dir)
+	envVars := SessionEnv(agent, token, ghToken, cfg.Matrix.Homeserver, profile)
 
-	// Ensure project and .jack directories exist.
-	jackDir := filepath.Join(dir, ".jack")
-	if err := os.MkdirAll(jackDir, 0o750); err != nil {
-		return fmt.Errorf("creating .jack dir: %w", err)
+	if err := runContainer(containerName, mounts, envVars); err != nil {
+		return fmt.Errorf("starting container: %w", err)
 	}
 
-	// Write .env file at the project root with session variables.
-	dotEnvContent := buildDotEnv(agent, token, ghToken)
-	dotEnvPath := filepath.Join(dir, ".env")
-	if err := os.WriteFile(dotEnvPath, []byte(dotEnvContent), 0o600); err != nil {
-		return fmt.Errorf("writing .env file: %w", err)
-	}
+	// Build the tmux command as docker exec into the container.
+	shellCmd := buildContainerShellCmd()
+	tmuxCmd := DockerExecCmd(containerName, shellCmd)
 
-	// Write to a script file so tmux doesn't have to handle long inline
-	// commands. Capture stderr to a log file for diagnostics.
-	scriptPath := filepath.Join(jackDir, "session.sh")
-	logPath := filepath.Join(jackDir, "session.log")
-	content := fmt.Sprintf("#!/bin/sh\n%s 2>%s\n", shellCmd, logPath)
-	if err := os.WriteFile(scriptPath, []byte(content), 0o600); err != nil {
-		return fmt.Errorf("writing session script: %w", err)
-	}
-
-	if err := createSession(name, dir, "sh "+scriptPath); err != nil {
+	if err := createSession(name, dir, tmuxCmd); err != nil {
+		_ = stopContainer(containerName)
 		return err
 	}
 

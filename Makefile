@@ -7,11 +7,13 @@ help: ## Display available commands
 	@echo "=============================="
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[36m%-18s\033[0m %s\n", $$1, $$2}'
 
-build: ## Build the jack binary
+build: ## Build the jack and msg binaries
 	@go build -o bin/jack ./cmd/jack
+	@go build -o bin/msg ./cmd/msg
 
-install: ## Build and install jack to $GOPATH/bin
+install: ## Build and install jack and msg to $GOPATH/bin
 	@go install ./cmd/jack
+	@go install ./cmd/msg
 
 test: ## Run all tests with race detector
 	@go test -v -race -tags testing ./...
