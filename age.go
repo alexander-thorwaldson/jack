@@ -28,8 +28,8 @@ type TokenEncrypterByRecipient func(token, recipient, outPath string) error
 // returns the plaintext token.
 type TokenDecrypter func(privKeyPath, agePath string) (string, error)
 
-// GHTokenReader reads a plaintext GitHub token for a team.
-type GHTokenReader func(team string) (string, error)
+// GHTokenReader reads a plaintext GitHub token for an agent.
+type GHTokenReader func(agent string) (string, error)
 
 
 func ageKeygen(outPath string) (*AgeKeypair, error) {
@@ -102,15 +102,14 @@ func ageKeyPath(repoDir string) string {
 	return filepath.Join(repoDir, ".jack", "age.key")
 }
 
-func ghTokenPath(teamName string) string {
-	return filepath.Join(env.configDir(), "teams", teamName, ".github-token")
+func ghTokenPath(agentName string) string {
+	return filepath.Join(env.configDir(), "agents", agentName, ".github-token")
 }
 
-func readGHToken(team string) (string, error) {
-	data, err := os.ReadFile(ghTokenPath(team))
+func readGHToken(agent string) (string, error) {
+	data, err := os.ReadFile(ghTokenPath(agent))
 	if err != nil {
 		return "", nil
 	}
 	return strings.TrimSpace(string(data)), nil
 }
-

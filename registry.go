@@ -9,15 +9,15 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
-// RegistryEntry records a cloned project for a team.
+// RegistryEntry records a cloned project for an agent.
 type RegistryEntry struct {
 	ClonedAt time.Time `yaml:"cloned_at"`
-	Team     string    `yaml:"team"`
+	Agent    string    `yaml:"agent"`
 	Repo     string    `yaml:"repo"`
 	URL      string    `yaml:"url"`
 }
 
-// Registry tracks which repos have been cloned for which teams.
+// Registry tracks which repos have been cloned for which agents.
 type Registry struct {
 	Projects []RegistryEntry `yaml:"projects"`
 }
@@ -28,43 +28,43 @@ type RegistryLoader func() (*Registry, error)
 // RegistrySaver persists the registry to disk.
 type RegistrySaver func(*Registry) error
 
-// Add records a new project entry, replacing any existing entry for the same team+repo.
-func (r *Registry) Add(team, repo, url string) {
-	r.Remove(team, repo)
+// Add records a new project entry, replacing any existing entry for the same agent+repo.
+func (r *Registry) Add(agent, repo, url string) {
+	r.Remove(agent, repo)
 	r.Projects = append(r.Projects, RegistryEntry{
-		Team:     team,
+		Agent:    agent,
 		Repo:     repo,
 		URL:      url,
 		ClonedAt: time.Now().UTC().Truncate(time.Second),
 	})
 }
 
-// Remove deletes the entry for a given team+repo if it exists.
-func (r *Registry) Remove(team, repo string) {
+// Remove deletes the entry for a given agent+repo if it exists.
+func (r *Registry) Remove(agent, repo string) {
 	filtered := r.Projects[:0]
 	for _, p := range r.Projects {
-		if p.Team != team || p.Repo != repo {
+		if p.Agent != agent || p.Repo != repo {
 			filtered = append(filtered, p)
 		}
 	}
 	r.Projects = filtered
 }
 
-// Find returns the entry for a given team+repo, or nil if not found.
-func (r *Registry) Find(team, repo string) *RegistryEntry {
+// Find returns the entry for a given agent+repo, or nil if not found.
+func (r *Registry) Find(agent, repo string) *RegistryEntry {
 	for i := range r.Projects {
-		if r.Projects[i].Team == team && r.Projects[i].Repo == repo {
+		if r.Projects[i].Agent == agent && r.Projects[i].Repo == repo {
 			return &r.Projects[i]
 		}
 	}
 	return nil
 }
 
-// ForTeam returns all entries for the given team, sorted by repo name.
-func (r *Registry) ForTeam(team string) []RegistryEntry {
+// ForAgent returns all entries for the given agent, sorted by repo name.
+func (r *Registry) ForAgent(agent string) []RegistryEntry {
 	var entries []RegistryEntry
 	for _, p := range r.Projects {
-		if p.Team == team {
+		if p.Agent == agent {
 			entries = append(entries, p)
 		}
 	}
@@ -74,42 +74,42 @@ func (r *Registry) ForTeam(team string) []RegistryEntry {
 	return entries
 }
 
-// Teams returns a sorted list of unique team names in the registry.
-func (r *Registry) Teams() []string {
+// Agents returns a sorted list of unique agent names in the registry.
+func (r *Registry) Agents() []string {
 	seen := make(map[string]bool)
 	for _, p := range r.Projects {
-		seen[p.Team] = true
+		seen[p.Agent] = true
 	}
-	teams := make([]string, 0, len(seen))
-	for t := range seen {
-		teams = append(teams, t)
+	agents := make([]string, 0, len(seen))
+	for a := range seen {
+		agents = append(agents, a)
 	}
-	sort.Strings(teams)
-	return teams
+	sort.Strings(agents)
+	return agents
 }
 
-// TeamsForRepo returns a sorted list of unique team names that have cloned
+// AgentsForRepo returns a sorted list of unique agent names that have cloned
 // the given repo.
-func (r *Registry) TeamsForRepo(repo string) []string {
+func (r *Registry) AgentsForRepo(repo string) []string {
 	seen := make(map[string]bool)
 	for _, p := range r.Projects {
 		if p.Repo == repo {
-			seen[p.Team] = true
+			seen[p.Agent] = true
 		}
 	}
-	teams := make([]string, 0, len(seen))
-	for t := range seen {
-		teams = append(teams, t)
+	agents := make([]string, 0, len(seen))
+	for a := range seen {
+		agents = append(agents, a)
 	}
-	sort.Strings(teams)
-	return teams
+	sort.Strings(agents)
+	return agents
 }
 
-// ReposForTeam returns a sorted list of repo names for the given team.
-func (r *Registry) ReposForTeam(team string) []string {
+// ReposForAgent returns a sorted list of repo names for the given agent.
+func (r *Registry) ReposForAgent(agent string) []string {
 	var repos []string
 	for _, p := range r.Projects {
-		if p.Team == team {
+		if p.Agent == agent {
 			repos = append(repos, p.Repo)
 		}
 	}

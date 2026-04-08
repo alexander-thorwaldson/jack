@@ -55,7 +55,7 @@ func TestBuildShellCmdNoGitConfig(t *testing.T) {
 
 func TestBuildDotEnv(t *testing.T) {
 	content := buildDotEnv("blue", "tok_123", "ghp_abc")
-	jtesting.AssertEqual(t, strings.Contains(content, "export JACK_TEAM=blue\n"), true)
+	jtesting.AssertEqual(t, strings.Contains(content, "export JACK_AGENT=blue\n"), true)
 	jtesting.AssertEqual(t, strings.Contains(content, "export JACK_MSG_TOKEN=tok_123\n"), true)
 	jtesting.AssertEqual(t, strings.Contains(content, "export GH_TOKEN=ghp_abc\n"), true)
 }

@@ -6,29 +6,29 @@ import (
 	"github.com/charmbracelet/huh"
 )
 
-// TeamSelector prompts the user to select a team.
-type TeamSelector func(teams []string) (string, error)
+// AgentSelector prompts the user to select an agent.
+type AgentSelector func(agents []string) (string, error)
 
-// ProjectSelector prompts the user to select a project for a team.
-type ProjectSelector func(team string, repos []string) (string, error)
+// ProjectSelector prompts the user to select a project for an agent.
+type ProjectSelector func(agent string, repos []string) (string, error)
 
-func selectTeam(teams []string) (string, error) {
-	var team string
+func selectAgent(agents []string) (string, error) {
+	var agent string
 	err := huh.NewSelect[string]().
-		Title("Select a team").
-		Options(huh.NewOptions(teams...)...).
-		Value(&team).
+		Title("Select an agent").
+		Options(huh.NewOptions(agents...)...).
+		Value(&agent).
 		Run()
 	if err != nil {
-		return "", fmt.Errorf("selecting team: %w", err)
+		return "", fmt.Errorf("selecting agent: %w", err)
 	}
-	return team, nil
+	return agent, nil
 }
 
-func selectProject(team string, repos []string) (string, error) {
+func selectProject(agent string, repos []string) (string, error) {
 	var repo string
 	err := huh.NewSelect[string]().
-		Title(fmt.Sprintf("Select a project for %s", team)).
+		Title(fmt.Sprintf("Select a project for %s", agent)).
 		Options(huh.NewOptions(repos...)...).
 		Value(&repo).
 		Run()

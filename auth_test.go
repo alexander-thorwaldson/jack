@@ -11,11 +11,11 @@ import (
 	jtesting "github.com/zoobzio/jack/testing"
 )
 
-func TestRunAuthUnknownTeam(t *testing.T) {
+func TestRunAuthUnknownAgent(t *testing.T) {
 	newTestConfig()
 	err := runAuth("bogus")
 	jtesting.AssertError(t, err)
-	jtesting.AssertEqual(t, strings.Contains(err.Error(), "unknown team"), true)
+	jtesting.AssertEqual(t, strings.Contains(err.Error(), "unknown agent"), true)
 }
 
 func TestGhTokenPathCreatesDir(t *testing.T) {
@@ -23,7 +23,7 @@ func TestGhTokenPathCreatesDir(t *testing.T) {
 	env = Env{ConfigDir: configDir}
 
 	path := ghTokenPath("blue")
-	expected := filepath.Join(configDir, "teams", "blue", ".github-token")
+	expected := filepath.Join(configDir, "agents", "blue", ".github-token")
 	jtesting.AssertEqual(t, path, expected)
 }
 
@@ -31,9 +31,9 @@ func TestGhTokenWriteAndRead(t *testing.T) {
 	configDir := t.TempDir()
 	env = Env{ConfigDir: configDir}
 
-	// Create team dir and write token.
-	teamDir := filepath.Join(configDir, "teams", "blue")
-	_ = os.MkdirAll(teamDir, 0o750)
+	// Create agent dir and write token.
+	agentDir := filepath.Join(configDir, "agents", "blue")
+	_ = os.MkdirAll(agentDir, 0o750)
 	path := ghTokenPath("blue")
 	_ = os.WriteFile(path, []byte("ghp_testtoken"), 0o600)
 

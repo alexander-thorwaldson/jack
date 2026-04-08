@@ -16,29 +16,29 @@ import (
 type Cloner func(url, dir string) error
 
 func init() {
-	cloneCmd.Flags().StringSliceP("team", "t", nil, "teams to clone for (required, repeatable)")
-	_ = cloneCmd.MarkFlagRequired("team")
+	cloneCmd.Flags().StringSliceP("agent", "a", nil, "agents to clone for (required, repeatable)")
+	_ = cloneCmd.MarkFlagRequired("agent")
 	cloneCmd.Flags().BoolP("force", "f", false, "remove existing repo and session before cloning")
 	rootCmd.AddCommand(cloneCmd)
 }
 
 var cloneCmd = &cobra.Command{
 	Use:   "clone <url>",
-	Short: "Clone a repo for a team",
-	Long:  "Clone a git repo into each team's isolated workspace and apply team skills.",
+	Short: "Clone a repo for an agent",
+	Long:  "Clone a git repo into each agent's isolated workspace and apply agent skills.",
 	Args:  cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
-		teams, _ := cmd.Flags().GetStringSlice("team")
+		agents, _ := cmd.Flags().GetStringSlice("agent")
 		force, _ := cmd.Flags().GetBool("force")
 		client := msg.NewClient(msg.Homeserver, "")
-		return runClone(args[0], teams, force, gitClone, HasSession, KillSession, client.Register, client.Login, ageKeygen, ageEncryptToRecipient, loadRegistry, saveRegistry, msg.ProvisionRepoChannel)
+		return runClone(args[0], agents, force, gitClone, HasSession, KillSession, client.Register, client.Login, ageKeygen, ageEncryptToRecipient, loadRegistry, saveRegistry, msg.ProvisionRepoChannel)
 	},
 }
 
-// RepoProvisioner creates a per-repo Matrix channel and invites other teams.
+// RepoProvisioner creates a per-repo Matrix channel and invites other agents.
 type RepoProvisioner func(token, repo string, inviteUserIDs []string) error
 
-func runClone(url string, teams []string, force bool, clone Cloner, hasSession SessionChecker, kill SessionKiller, register msg.Registerer, login msg.Authenticator, keygen KeypairGenerator, encrypt TokenEncrypterByRecipient, loadReg RegistryLoader, saveReg RegistrySaver, provisionRepo RepoProvisioner) error {
+func runClone(url string, agents []string, force bool, clone Cloner, hasSession SessionChecker, kill SessionKiller, register msg.Registerer, login msg.Authenticator, keygen KeypairGenerator, encrypt TokenEncrypterByRecipient, loadReg RegistryLoader, saveReg RegistrySaver, provisionRepo RepoProvisioner) error {
 	repo := repoName(url)
 	if repo == "" {
 		return fmt.Errorf("cannot extract repo name from %q", url)
@@ -51,26 +51,26 @@ func runClone(url string, teams []string, force bool, clone Cloner, hasSession S
 		return fmt.Errorf("loading registry: %w", err)
 	}
 
-	for _, teamName := range teams {
-		// Validate team prerequisites.
-		if err := validateTeam(configDir, teamName); err != nil {
+	for _, agentName := range agents {
+		// Validate agent prerequisites.
+		if err := validateAgent(configDir, agentName); err != nil {
 			return err
 		}
 
-		if _, ok := cfg.Profiles[teamName]; !ok {
-			return fmt.Errorf("unknown team %q (no matching profile)", teamName)
+		if _, ok := cfg.Profiles[agentName]; !ok {
+			return fmt.Errorf("unknown agent %q (no matching profile)", agentName)
 		}
 
-		dir := filepath.Join(env.dataDir(), teamName, repo)
+		dir := filepath.Join(env.dataDir(), agentName, repo)
 
 		// Check for existing clone.
 		if _, err := os.Stat(dir); err == nil {
 			if !force {
-				fmt.Printf("warning: %s already exists for team %s, skipping (use --force to replace)\n", repo, teamName)
+				fmt.Printf("warning: %s already exists for agent %s, skipping (use --force to replace)\n", repo, agentName)
 				continue
 			}
 			// Kill the session if it's running.
-			name := SessionName(teamName, repo)
+			name := SessionName(agentName, repo)
 			if hasSession(name) {
 				if err := kill(name); err != nil {
 					return fmt.Errorf("killing session %s: %w", name, err)
@@ -87,16 +87,16 @@ func runClone(url string, teams []string, force bool, clone Cloner, hasSession S
 		}
 
 		if err := clone(url, dir); err != nil {
-			return fmt.Errorf("cloning %s for team %s: %w", repo, teamName, err)
+			return fmt.Errorf("cloning %s for agent %s: %w", repo, agentName, err)
 		}
 
-		if err := applyAgent(teamName, dir); err != nil {
-			return fmt.Errorf("applying team %s: %w", teamName, err)
+		if err := applyAgent(agentName, dir); err != nil {
+			return fmt.Errorf("applying agent %s: %w", agentName, err)
 		}
 
 		// Register Matrix user for this session, falling back to login if
 		// the user already exists (e.g. re-clone after a failed attempt).
-		username := teamName + "-" + repo
+		username := agentName + "-" + repo
 		mReg, err := register(username, username, cfg.Matrix.RegistrationToken)
 		if err != nil {
 			if !strings.Contains(err.Error(), "M_USER_IN_USE") {
@@ -120,17 +120,17 @@ func runClone(url string, teams []string, force bool, clone Cloner, hasSession S
 		}
 
 		// Record in registry.
-		reg.Add(teamName, repo, url)
+		reg.Add(agentName, repo, url)
 		if err := saveReg(reg); err != nil {
 			return fmt.Errorf("saving registry: %w", err)
 		}
 
-		// Provision per-repo channel and invite other teams (non-fatal).
+		// Provision per-repo channel and invite other agents (non-fatal).
 		if provisionRepo != nil {
 			server := msg.ServerName(msg.Homeserver)
 			var inviteUserIDs []string
-			for _, other := range reg.TeamsForRepo(repo) {
-				if other != teamName {
+			for _, other := range reg.AgentsForRepo(repo) {
+				if other != agentName {
 					inviteUserIDs = append(inviteUserIDs, fmt.Sprintf("@%s-%s:%s", other, repo, server))
 				}
 			}
@@ -139,7 +139,7 @@ func runClone(url string, teams []string, force bool, clone Cloner, hasSession S
 			}
 		}
 
-		fmt.Printf("cloned %s for team %s\n", repo, teamName)
+		fmt.Printf("cloned %s for agent %s\n", repo, agentName)
 	}
 
 	return nil

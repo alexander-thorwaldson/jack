@@ -8,9 +8,9 @@ import (
 
 // applyAgent provisions CLAUDE.md and skills into the repo's .claude directory.
 // Files are symlinked so the jack config directory remains the single source of truth.
-func applyAgent(teamName, dir string) error {
+func applyAgent(agentName, dir string) error {
 	configDir := env.configDir()
-	teamDir := filepath.Join(configDir, "teams", teamName)
+	agentDir := filepath.Join(configDir, "agents", agentName)
 	claudeDir := filepath.Join(dir, ".claude")
 
 	if err := os.MkdirAll(claudeDir, 0o750); err != nil {
@@ -18,17 +18,17 @@ func applyAgent(teamName, dir string) error {
 	}
 
 	// Symlink CLAUDE.md into .claude/.
-	src := filepath.Join(teamDir, "CLAUDE.md")
+	src := filepath.Join(agentDir, "CLAUDE.md")
 	resolved, err := filepath.EvalSymlinks(src)
 	if err != nil {
-		return fmt.Errorf("resolving CLAUDE.md for team %q: %w", teamName, err)
+		return fmt.Errorf("resolving CLAUDE.md for agent %q: %w", agentName, err)
 	}
 	if linkErr := os.Symlink(resolved, filepath.Join(claudeDir, "CLAUDE.md")); linkErr != nil {
-		return fmt.Errorf("linking CLAUDE.md for team %q: %w", teamName, linkErr)
+		return fmt.Errorf("linking CLAUDE.md for agent %q: %w", agentName, linkErr)
 	}
 
 	// Skills — symlink into .claude/commands/.
-	skills, err := discoverTeamSkills(teamName)
+	skills, err := discoverAgentSkills(agentName)
 	if err != nil {
 		return err
 	}
@@ -38,7 +38,7 @@ func applyAgent(teamName, dir string) error {
 			return fmt.Errorf("creating commands dir: %w", err)
 		}
 		for _, skill := range skills {
-			src := filepath.Join(teamDir, "skills", skill)
+			src := filepath.Join(agentDir, "skills", skill)
 			resolved, err := filepath.EvalSymlinks(src)
 			if err != nil {
 				return fmt.Errorf("resolving skill %q: %w", skill, err)
@@ -53,22 +53,22 @@ func applyAgent(teamName, dir string) error {
 	return nil
 }
 
-// validateTeam checks that the team directory exists with a CLAUDE.md and
+// validateAgent checks that the agent directory exists with a CLAUDE.md and
 // skills directory before cloning begins.
-func validateTeam(configDir, teamName string) error {
-	teamDir := filepath.Join(configDir, "teams", teamName)
-	if _, err := os.Stat(teamDir); err != nil {
-		return fmt.Errorf("team directory not found: teams/%s/", teamName)
+func validateAgent(configDir, agentName string) error {
+	agentDir := filepath.Join(configDir, "agents", agentName)
+	if _, err := os.Stat(agentDir); err != nil {
+		return fmt.Errorf("agent directory not found: agents/%s/", agentName)
 	}
 
-	claudeMD := filepath.Join(teamDir, "CLAUDE.md")
+	claudeMD := filepath.Join(agentDir, "CLAUDE.md")
 	if _, err := os.Stat(claudeMD); err != nil {
-		return fmt.Errorf("CLAUDE.md not found in teams/%s/", teamName)
+		return fmt.Errorf("CLAUDE.md not found in agents/%s/", agentName)
 	}
 
-	skillsDir := filepath.Join(teamDir, "skills")
+	skillsDir := filepath.Join(agentDir, "skills")
 	if info, err := os.Stat(skillsDir); err != nil || !info.IsDir() {
-		return fmt.Errorf("skills directory not found: teams/%s/skills/", teamName)
+		return fmt.Errorf("skills directory not found: agents/%s/skills/", agentName)
 	}
 
 	return nil

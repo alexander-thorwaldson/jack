@@ -14,7 +14,7 @@ var env Env
 var rootCmd = &cobra.Command{
 	Use:   "jack",
 	Short: "Operator console for multi-agent development",
-	Long:  "Jack manages teams, sandboxes, sessions, and profiles for multi-agent Claude Code development.",
+	Long:  "Jack manages agents, sandboxes, sessions, and profiles for multi-agent Claude Code development.",
 	PersistentPreRunE: func(cmd *cobra.Command, _ []string) error {
 		if err := fig.Load(&env); err != nil {
 			return fmt.Errorf("failed to load environment config: %w", err)

@@ -59,13 +59,13 @@ func (c Config) Validate() error {
 	return nil
 }
 
-// discoverTeamSkills returns skill names for a team by reading entries from
-// the teams/{name}/skills/ directory. Entries may be directories or symlinks.
-func discoverTeamSkills(teamName string) ([]string, error) {
-	skillsDir := filepath.Join(env.configDir(), "teams", teamName, "skills")
+// discoverAgentSkills returns skill names for an agent by reading entries from
+// the agents/{name}/skills/ directory. Entries may be directories or symlinks.
+func discoverAgentSkills(agentName string) ([]string, error) {
+	skillsDir := filepath.Join(env.configDir(), "agents", agentName, "skills")
 	entries, err := os.ReadDir(skillsDir)
 	if err != nil {
-		return nil, fmt.Errorf("team skills directory for %q: %w", teamName, err)
+		return nil, fmt.Errorf("agent skills directory for %q: %w", agentName, err)
 	}
 	var skills []string
 	for _, e := range entries {

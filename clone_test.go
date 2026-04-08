@@ -53,41 +53,41 @@ func noopLogin(_, _ string) (*msg.Registration, error) {
 func noopRegLoader() (*Registry, error) { return &Registry{}, nil }
 func noopRegSaver(_ *Registry) error    { return nil }
 
-// setupTeamFixtures creates the team directories needed for clone validation
-// and team application to pass.
-func setupTeamFixtures(t *testing.T, skills []string) {
+// setupAgentFixtures creates the agent directories needed for clone validation
+// and agent application to pass.
+func setupAgentFixtures(t *testing.T, skills []string) {
 	t.Helper()
 	configDir := t.TempDir()
 	dataDir := t.TempDir()
 	env = Env{ConfigDir: configDir, DataDir: dataDir}
 
 	for name := range cfg.Profiles {
-		teamDir := filepath.Join(configDir, "teams", name)
-		teamSkillsDir := filepath.Join(teamDir, "skills")
-		_ = os.MkdirAll(teamSkillsDir, 0o750)
-		_ = os.WriteFile(filepath.Join(teamDir, "CLAUDE.md"), []byte("x"), 0o600)
+		agentDir := filepath.Join(configDir, "agents", name)
+		agentSkillsDir := filepath.Join(agentDir, "skills")
+		_ = os.MkdirAll(agentSkillsDir, 0o750)
+		_ = os.WriteFile(filepath.Join(agentDir, "CLAUDE.md"), []byte("x"), 0o600)
 		for _, skill := range skills {
-			skillDir := filepath.Join(teamSkillsDir, skill)
+			skillDir := filepath.Join(agentSkillsDir, skill)
 			_ = os.MkdirAll(skillDir, 0o750)
 			_ = os.WriteFile(filepath.Join(skillDir, "SKILL.md"), []byte("x"), 0o600)
 		}
 	}
 }
 
-func TestRunCloneUnknownTeam(t *testing.T) {
+func TestRunCloneUnknownAgent(t *testing.T) {
 	newTestConfig()
-	setupTeamFixtures(t, []string{"commit", "pr"})
+	setupAgentFixtures(t, []string{"commit", "pr"})
 	err := runClone("git@github.com:zoobzio/vicky.git", []string{"bogus"}, false,
 		noopCloner, noopChecker, noopKiller,
 		noopRegisterer, noopLogin, noopKeygen, noopRecipientEncrypter,
 		noopRegLoader, noopRegSaver, noopRepoProvisioner)
 	jtesting.AssertError(t, err)
-	jtesting.AssertEqual(t, strings.Contains(err.Error(), "team directory not found"), true)
+	jtesting.AssertEqual(t, strings.Contains(err.Error(), "agent directory not found"), true)
 }
 
 func TestRunCloneSuccess(t *testing.T) {
 	newTestConfig()
-	setupTeamFixtures(t, []string{"commit", "pr"})
+	setupAgentFixtures(t, []string{"commit", "pr"})
 
 	var clonedURLs, clonedDirs []string
 	cloner := func(url, dir string) error {
@@ -114,14 +114,14 @@ func TestRunCloneSuccess(t *testing.T) {
 	jtesting.AssertEqual(t, savedReg.Find("blue", "vicky") != nil, true)
 }
 
-func TestRunCloneMultipleTeams(t *testing.T) {
+func TestRunCloneMultipleAgents(t *testing.T) {
 	cfg = Config{
 		Profiles: map[string]Profile{
 			"blue": {Git: GitConfig{Name: "Rockhopper", Email: "rock@example.com"}},
 			"red":  {Git: GitConfig{Name: "Mother", Email: "mother@example.com"}},
 		},
 	}
-	setupTeamFixtures(t, []string{"commit"})
+	setupAgentFixtures(t, []string{"commit"})
 
 	var savedReg *Registry
 	saver := func(r *Registry) error {
@@ -141,7 +141,7 @@ func TestRunCloneMultipleTeams(t *testing.T) {
 
 func TestRunCloneRegistersAndEncrypts(t *testing.T) {
 	newTestConfig()
-	setupTeamFixtures(t, []string{"commit", "pr"})
+	setupAgentFixtures(t, []string{"commit", "pr"})
 
 	var registeredUsername string
 	registerer := func(user, pass, token string) (*msg.Registration, error) {
@@ -175,7 +175,7 @@ func TestRunCloneRegistersAndEncrypts(t *testing.T) {
 	jtesting.AssertEqual(t, strings.HasSuffix(keygenPath, ".jack/age.key"), true)
 }
 
-func TestRunCloneValidationFailsMissingTeam(t *testing.T) {
+func TestRunCloneValidationFailsMissingAgent(t *testing.T) {
 	newTestConfig()
 	configDir := t.TempDir()
 	env = Env{ConfigDir: configDir, DataDir: t.TempDir()}
@@ -185,12 +185,12 @@ func TestRunCloneValidationFailsMissingTeam(t *testing.T) {
 		noopRegisterer, noopLogin, noopKeygen, noopRecipientEncrypter,
 		noopRegLoader, noopRegSaver, noopRepoProvisioner)
 	jtesting.AssertError(t, err)
-	jtesting.AssertEqual(t, strings.Contains(err.Error(), "team directory not found"), true)
+	jtesting.AssertEqual(t, strings.Contains(err.Error(), "agent directory not found"), true)
 }
 
 func TestRunCloneSkipsExisting(t *testing.T) {
 	newTestConfig()
-	setupTeamFixtures(t, []string{"commit"})
+	setupAgentFixtures(t, []string{"commit"})
 
 	// Pre-create the repo directory to simulate a previous clone.
 	dir := filepath.Join(env.dataDir(), "blue", "vicky")
@@ -212,7 +212,7 @@ func TestRunCloneSkipsExisting(t *testing.T) {
 
 func TestRunCloneForceReplacesExisting(t *testing.T) {
 	newTestConfig()
-	setupTeamFixtures(t, []string{"commit"})
+	setupAgentFixtures(t, []string{"commit"})
 
 	// Pre-create the repo directory to simulate a previous clone.
 	dir := filepath.Join(env.dataDir(), "blue", "vicky")

@@ -23,7 +23,7 @@ func TestAgeKeyPath(t *testing.T) {
 
 func TestGhTokenPath(t *testing.T) {
 	env = Env{ConfigDir: "/home/user/.config/jack"}
-	jtesting.AssertEqual(t, ghTokenPath("blue"), "/home/user/.config/jack/teams/blue/.github-token")
+	jtesting.AssertEqual(t, ghTokenPath("blue"), "/home/user/.config/jack/agents/blue/.github-token")
 }
 
 func TestReadAgePublicKey(t *testing.T) {
@@ -52,9 +52,9 @@ func TestReadGHToken(t *testing.T) {
 	configDir := t.TempDir()
 	env = Env{ConfigDir: configDir}
 
-	teamDir := filepath.Join(configDir, "teams", "blue")
-	_ = os.MkdirAll(teamDir, 0o750)
-	_ = os.WriteFile(filepath.Join(teamDir, ".github-token"), []byte("ghp_test123\n"), 0o600)
+	agentDir := filepath.Join(configDir, "agents", "blue")
+	_ = os.MkdirAll(agentDir, 0o750)
+	_ = os.WriteFile(filepath.Join(agentDir, ".github-token"), []byte("ghp_test123\n"), 0o600)
 
 	token, err := readGHToken("blue")
 	jtesting.AssertNoError(t, err)

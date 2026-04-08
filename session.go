@@ -102,10 +102,10 @@ func buildBwrapShellCmd(profile Profile, dir string) string {
 
 // buildDotEnv creates the content for a .env file containing session
 // environment variables.
-func buildDotEnv(team, token, ghToken string) string {
+func buildDotEnv(agent, token, ghToken string) string {
 	var lines []string
-	if team != "" {
-		lines = append(lines, "export JACK_TEAM="+team)
+	if agent != "" {
+		lines = append(lines, "export JACK_AGENT="+agent)
 	}
 	if token != "" {
 		lines = append(lines, "export JACK_MSG_TOKEN="+token)

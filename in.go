@@ -10,7 +10,7 @@ import (
 )
 
 func init() {
-	inCmd.Flags().StringP("team", "t", "", "team name")
+	inCmd.Flags().StringP("agent", "a", "", "agent name")
 	inCmd.Flags().StringP("project", "p", "", "project name")
 	rootCmd.AddCommand(inCmd)
 }
@@ -21,14 +21,14 @@ type RepoAnnouncer func(token, repo, message string) error
 var inCmd = &cobra.Command{
 	Use:   "in",
 	Short: "Enter a session",
-	Long:  "Attach to an existing session or create one.\nWith no arguments, interactively select a team and project.",
+	Long:  "Attach to an existing session or create one.\nWith no arguments, interactively select an agent and project.",
 	Args:  cobra.NoArgs,
 	RunE: func(cmd *cobra.Command, _ []string) error {
-		team, _ := cmd.Flags().GetString("team")
+		agent, _ := cmd.Flags().GetString("agent")
 		project, _ := cmd.Flags().GetString("project")
-		return runIn(team, project,
+		return runIn(agent, project,
 			loadRegistry,
-			selectTeam, selectProject,
+			selectAgent, selectProject,
 			HasSession, CreateSession, AttachSession,
 			sshAdd, ageDecrypt, readGHToken,
 			msg.AnnounceOnRepoChannel,
@@ -36,39 +36,39 @@ var inCmd = &cobra.Command{
 	},
 }
 
-func runIn(team, project string, loadReg RegistryLoader, selTeam TeamSelector, selProject ProjectSelector, hasSession SessionChecker, createSession SessionCreator, attach SessionAttacher, addKey KeyAdder, decrypt TokenDecrypter, readGH GHTokenReader, announce RepoAnnouncer) error {
+func runIn(agent, project string, loadReg RegistryLoader, selAgent AgentSelector, selProject ProjectSelector, hasSession SessionChecker, createSession SessionCreator, attach SessionAttacher, addKey KeyAdder, decrypt TokenDecrypter, readGH GHTokenReader, announce RepoAnnouncer) error {
 	reg, err := loadReg()
 	if err != nil {
 		return fmt.Errorf("loading registry: %w", err)
 	}
 
-	// Resolve team.
-	if team == "" {
-		teams := reg.Teams()
-		switch len(teams) {
+	// Resolve agent.
+	if agent == "" {
+		agents := reg.Agents()
+		switch len(agents) {
 		case 0:
 			return fmt.Errorf("no projects cloned — run jack clone first")
 		case 1:
-			team = teams[0]
+			agent = agents[0]
 		default:
-			t, selErr := selTeam(teams)
+			a, selErr := selAgent(agents)
 			if selErr != nil {
 				return selErr
 			}
-			team = t
+			agent = a
 		}
 	}
 
 	// Resolve project.
 	if project == "" {
-		repos := reg.ReposForTeam(team)
+		repos := reg.ReposForAgent(agent)
 		switch len(repos) {
 		case 0:
-			return fmt.Errorf("no projects cloned for team %q", team)
+			return fmt.Errorf("no projects cloned for agent %q", agent)
 		case 1:
 			project = repos[0]
 		default:
-			p, selErr := selProject(team, repos)
+			p, selErr := selProject(agent, repos)
 			if selErr != nil {
 				return selErr
 			}
@@ -76,8 +76,8 @@ func runIn(team, project string, loadReg RegistryLoader, selTeam TeamSelector, s
 		}
 	}
 
-	name := SessionName(team, project)
-	dir := filepath.Join(env.dataDir(), team, project)
+	name := SessionName(agent, project)
+	dir := filepath.Join(env.dataDir(), agent, project)
 
 	// If session exists, attach to it.
 	if hasSession(name) {
@@ -85,9 +85,9 @@ func runIn(team, project string, loadReg RegistryLoader, selTeam TeamSelector, s
 	}
 
 	// Create a new session.
-	profile, ok := cfg.Profiles[team]
+	profile, ok := cfg.Profiles[agent]
 	if !ok {
-		return fmt.Errorf("unknown team %q (no matching profile)", team)
+		return fmt.Errorf("unknown agent %q (no matching profile)", agent)
 	}
 
 	if profile.SSH.Key != "" {
@@ -110,7 +110,7 @@ func runIn(team, project string, loadReg RegistryLoader, selTeam TeamSelector, s
 	}
 
 	// Read plaintext GitHub token.
-	ghToken, err := readGH(team)
+	ghToken, err := readGH(agent)
 	if err != nil {
 		return fmt.Errorf("reading github token: %w", err)
 	}
@@ -131,7 +131,7 @@ func runIn(team, project string, loadReg RegistryLoader, selTeam TeamSelector, s
 	}
 
 	// Write .env file at the project root with session variables.
-	dotEnvContent := buildDotEnv(team, token, ghToken)
+	dotEnvContent := buildDotEnv(agent, token, ghToken)
 	dotEnvPath := filepath.Join(dir, ".env")
 	if err := os.WriteFile(dotEnvPath, []byte(dotEnvContent), 0o600); err != nil {
 		return fmt.Errorf("writing .env file: %w", err)

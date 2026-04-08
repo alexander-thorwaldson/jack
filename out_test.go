@@ -52,8 +52,8 @@ func TestRunOutPartialFlags(t *testing.T) {
 
 func TestRunOutAnnouncesWithToken(t *testing.T) {
 	var announcedToken, announcedRepo, announcedMsg string
-	reader := func(team, project string) string {
-		jtesting.AssertEqual(t, team, "blue")
+	reader := func(agent, project string) string {
+		jtesting.AssertEqual(t, agent, "blue")
 		jtesting.AssertEqual(t, project, "vicky")
 		return "tok_session"
 	}
@@ -71,11 +71,11 @@ func TestRunOutAnnouncesWithToken(t *testing.T) {
 }
 
 func TestParseSessionName(t *testing.T) {
-	team, project := parseSessionName("blue-vicky")
-	jtesting.AssertEqual(t, team, "blue")
+	agent, project := parseSessionName("blue-vicky")
+	jtesting.AssertEqual(t, agent, "blue")
 	jtesting.AssertEqual(t, project, "vicky")
 
-	team, project = parseSessionName("rockhopper-sentinel")
-	jtesting.AssertEqual(t, team, "rockhopper")
+	agent, project = parseSessionName("rockhopper-sentinel")
+	jtesting.AssertEqual(t, agent, "rockhopper")
 	jtesting.AssertEqual(t, project, "sentinel")
 }

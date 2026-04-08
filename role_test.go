@@ -11,7 +11,7 @@ import (
 	jtesting "github.com/zoobzio/jack/testing"
 )
 
-func TestApplyAgentUnknownTeam(t *testing.T) {
+func TestApplyAgentUnknownAgent(t *testing.T) {
 	configDir := t.TempDir()
 	env = Env{ConfigDir: configDir, DataDir: "/tmp/jack"}
 	err := applyAgent("bogus", t.TempDir())
@@ -24,18 +24,18 @@ func TestApplyAgentSuccess(t *testing.T) {
 	configDir, _ := filepath.EvalSymlinks(t.TempDir())
 	env = Env{ConfigDir: configDir, DataDir: "/tmp/jack"}
 
-	teamDir := filepath.Join(configDir, "teams", "blue")
+	agentDir := filepath.Join(configDir, "agents", "blue")
 
 	// CLAUDE.md
-	_ = os.MkdirAll(teamDir, 0o750)
-	_ = os.WriteFile(filepath.Join(teamDir, "CLAUDE.md"), []byte("instructions"), 0o600)
+	_ = os.MkdirAll(agentDir, 0o750)
+	_ = os.WriteFile(filepath.Join(agentDir, "CLAUDE.md"), []byte("instructions"), 0o600)
 
 	// Skills.
-	teamSkillsDir := filepath.Join(teamDir, "skills")
-	_ = os.MkdirAll(filepath.Join(teamSkillsDir, "commit"), 0o750)
-	_ = os.WriteFile(filepath.Join(teamSkillsDir, "commit", "SKILL.md"), []byte("commit"), 0o600)
-	_ = os.MkdirAll(filepath.Join(teamSkillsDir, "pr"), 0o750)
-	_ = os.WriteFile(filepath.Join(teamSkillsDir, "pr", "SKILL.md"), []byte("pr"), 0o600)
+	agentSkillsDir := filepath.Join(agentDir, "skills")
+	_ = os.MkdirAll(filepath.Join(agentSkillsDir, "commit"), 0o750)
+	_ = os.WriteFile(filepath.Join(agentSkillsDir, "commit", "SKILL.md"), []byte("commit"), 0o600)
+	_ = os.MkdirAll(filepath.Join(agentSkillsDir, "pr"), 0o750)
+	_ = os.WriteFile(filepath.Join(agentSkillsDir, "pr", "SKILL.md"), []byte("pr"), 0o600)
 
 	dir := t.TempDir()
 	err := applyAgent("blue", dir)
@@ -45,27 +45,27 @@ func TestApplyAgentSuccess(t *testing.T) {
 	claudeLink := filepath.Join(dir, ".claude", "CLAUDE.md")
 	target, err := os.Readlink(claudeLink)
 	jtesting.AssertNoError(t, err)
-	jtesting.AssertEqual(t, target, filepath.Join(teamDir, "CLAUDE.md"))
+	jtesting.AssertEqual(t, target, filepath.Join(agentDir, "CLAUDE.md"))
 
 	// Skills symlinked.
 	commitLink := filepath.Join(dir, ".claude", "commands", "commit")
 	target, err = os.Readlink(commitLink)
 	jtesting.AssertNoError(t, err)
-	jtesting.AssertEqual(t, target, filepath.Join(teamSkillsDir, "commit"))
+	jtesting.AssertEqual(t, target, filepath.Join(agentSkillsDir, "commit"))
 
 	prLink := filepath.Join(dir, ".claude", "commands", "pr")
 	target, err = os.Readlink(prLink)
 	jtesting.AssertNoError(t, err)
-	jtesting.AssertEqual(t, target, filepath.Join(teamSkillsDir, "pr"))
+	jtesting.AssertEqual(t, target, filepath.Join(agentSkillsDir, "pr"))
 }
 
 func TestApplyAgentNoSkills(t *testing.T) {
 	configDir, _ := filepath.EvalSymlinks(t.TempDir())
 	env = Env{ConfigDir: configDir, DataDir: "/tmp/jack"}
 
-	teamDir := filepath.Join(configDir, "teams", "solo")
-	_ = os.MkdirAll(filepath.Join(teamDir, "skills"), 0o750)
-	_ = os.WriteFile(filepath.Join(teamDir, "CLAUDE.md"), []byte("instructions"), 0o600)
+	agentDir := filepath.Join(configDir, "agents", "solo")
+	_ = os.MkdirAll(filepath.Join(agentDir, "skills"), 0o750)
+	_ = os.WriteFile(filepath.Join(agentDir, "CLAUDE.md"), []byte("instructions"), 0o600)
 
 	dir := t.TempDir()
 	err := applyAgent("solo", dir)
@@ -81,41 +81,41 @@ func TestApplyAgentNoSkills(t *testing.T) {
 	jtesting.AssertEqual(t, os.IsNotExist(err), true)
 }
 
-func TestValidateTeamMissingDir(t *testing.T) {
+func TestValidateAgentMissingDir(t *testing.T) {
 	configDir := t.TempDir()
-	err := validateTeam(configDir, "blue")
+	err := validateAgent(configDir, "blue")
 	jtesting.AssertError(t, err)
-	jtesting.AssertEqual(t, strings.Contains(err.Error(), "team directory not found"), true)
+	jtesting.AssertEqual(t, strings.Contains(err.Error(), "agent directory not found"), true)
 }
 
-func TestValidateTeamMissingClaudeMD(t *testing.T) {
+func TestValidateAgentMissingClaudeMD(t *testing.T) {
 	configDir := t.TempDir()
-	teamDir := filepath.Join(configDir, "teams", "blue")
-	_ = os.MkdirAll(teamDir, 0o750)
-	_ = os.MkdirAll(filepath.Join(teamDir, "skills"), 0o750)
+	agentDir := filepath.Join(configDir, "agents", "blue")
+	_ = os.MkdirAll(agentDir, 0o750)
+	_ = os.MkdirAll(filepath.Join(agentDir, "skills"), 0o750)
 
-	err := validateTeam(configDir, "blue")
+	err := validateAgent(configDir, "blue")
 	jtesting.AssertError(t, err)
 	jtesting.AssertEqual(t, strings.Contains(err.Error(), "CLAUDE.md not found"), true)
 }
 
-func TestValidateTeamMissingSkillsDir(t *testing.T) {
+func TestValidateAgentMissingSkillsDir(t *testing.T) {
 	configDir := t.TempDir()
-	teamDir := filepath.Join(configDir, "teams", "blue")
-	_ = os.MkdirAll(teamDir, 0o750)
-	_ = os.WriteFile(filepath.Join(teamDir, "CLAUDE.md"), []byte("x"), 0o600)
+	agentDir := filepath.Join(configDir, "agents", "blue")
+	_ = os.MkdirAll(agentDir, 0o750)
+	_ = os.WriteFile(filepath.Join(agentDir, "CLAUDE.md"), []byte("x"), 0o600)
 
-	err := validateTeam(configDir, "blue")
+	err := validateAgent(configDir, "blue")
 	jtesting.AssertError(t, err)
 	jtesting.AssertEqual(t, strings.Contains(err.Error(), "skills directory not found"), true)
 }
 
-func TestValidateTeamSuccess(t *testing.T) {
+func TestValidateAgentSuccess(t *testing.T) {
 	configDir := t.TempDir()
-	teamDir := filepath.Join(configDir, "teams", "blue")
-	_ = os.MkdirAll(filepath.Join(teamDir, "skills"), 0o750)
-	_ = os.WriteFile(filepath.Join(teamDir, "CLAUDE.md"), []byte("x"), 0o600)
+	agentDir := filepath.Join(configDir, "agents", "blue")
+	_ = os.MkdirAll(filepath.Join(agentDir, "skills"), 0o750)
+	_ = os.WriteFile(filepath.Join(agentDir, "CLAUDE.md"), []byte("x"), 0o600)
 
-	err := validateTeam(configDir, "blue")
+	err := validateAgent(configDir, "blue")
 	jtesting.AssertNoError(t, err)
 }
