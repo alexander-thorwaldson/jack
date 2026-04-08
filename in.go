@@ -1,6 +1,7 @@
 package jack
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -88,6 +89,13 @@ func runIn(agent, project string, loadReg RegistryLoader, selAgent AgentSelector
 	// Verify agent exists in config.
 	if _, ok := cfg.Agents[agent]; !ok {
 		return fmt.Errorf("unknown agent %q", agent)
+	}
+
+	// Renew agent certificate if expiring soon.
+	if cfg.CA.URL != "" && certNeedsRenewal(agent, renewThreshold) {
+		if renewErr := renewCert(context.Background(), agent); renewErr != nil {
+			fmt.Fprintf(os.Stderr, "warning: cert renewal failed for %s: %v\n", agent, renewErr)
+		}
 	}
 
 	// Read Matrix token.

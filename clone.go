@@ -86,6 +86,14 @@ func runClone(ctx context.Context, url string, agents []string, force bool, clon
 			return fmt.Errorf("unknown agent %q", agentName)
 		}
 
+		// Issue a certificate for this agent if CA is configured and no cert exists.
+		if cfg.CA.URL != "" && !hasCert(agentName) {
+			if err := issueCert(ctx, agentName); err != nil {
+				return fmt.Errorf("issuing cert for agent %s: %w", agentName, err)
+			}
+			fmt.Printf("issued certificate for agent %s\n", agentName)
+		}
+
 		dir := filepath.Join(env.dataDir(), agentName, repo)
 
 		// Check for existing clone.

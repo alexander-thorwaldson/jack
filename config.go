@@ -14,6 +14,14 @@ type Config struct {
 	Agents map[string]AgentConfig `yaml:"agents"`
 	Matrix MatrixConfig           `yaml:"matrix"`
 	Git    GitConfig              `yaml:"git"`
+	CA     CAConfig               `yaml:"ca"`
+}
+
+// CAConfig holds certificate authority settings for agent identity.
+type CAConfig struct {
+	URL         string `yaml:"url"`
+	Root        string `yaml:"root"`
+	Provisioner string `yaml:"provisioner"`
 }
 
 // AgentConfig holds per-agent settings.

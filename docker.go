@@ -58,6 +58,20 @@ func SessionMounts(c Config, agent, repoDir string) []Mount {
 		{Source: filepath.Join(home, ".claude"), Target: "/root/.claude", ReadOnly: false},
 		{Source: repoDir, Target: "/workspace", ReadOnly: false},
 	}
+	// Mount agent certificate and CA root for MCP authentication.
+	if hasCert(agent) {
+		mounts = append(mounts,
+			Mount{Source: certPath(agent), Target: "/root/.jack/cert.pem", ReadOnly: true},
+			Mount{Source: keyPath(agent), Target: "/root/.jack/key.pem", ReadOnly: true},
+		)
+	}
+	if c.CA.Root != "" {
+		rootPath := expandHome(c.CA.Root)
+		if _, err := os.Stat(rootPath); err == nil {
+			mounts = append(mounts, Mount{Source: rootPath, Target: "/root/.jack/ca.pem", ReadOnly: true})
+		}
+	}
+
 	if ac, ok := c.Agents[agent]; ok {
 		for _, repoURL := range ac.Repos {
 			name := repoName(repoURL)
