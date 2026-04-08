@@ -21,13 +21,12 @@ func newTestConfig() {
 	}
 }
 
-func noopChecker(string) bool                  { return false }
-func existsChecker(string) bool                { return true }
-func noopCreator(_, _, _ string) error          { return nil }
-func noopAdder(_ string) error                  { return nil }
-func noopDecrypter(_, _ string) (string, error) { return "", nil }
-func noopAttacher(_ string) error               { return nil }
-func noopGHReader(_ string) (string, error)     { return "", nil }
+func noopChecker(string) bool              { return false }
+func existsChecker(string) bool            { return true }
+func noopCreator(_, _, _ string) error      { return nil }
+func noopAdder(_ string) error              { return nil }
+func noopAttacher(_ string) error           { return nil }
+func noopGHReader(_ string) (string, error) { return "", nil }
 
 func TestBuildShellCmd(t *testing.T) {
 	profile := Profile{

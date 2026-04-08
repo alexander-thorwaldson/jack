@@ -32,15 +32,10 @@ func TestRepoName(t *testing.T) {
 	}
 }
 
-func noopCloner(_, _ string) error { return nil }
-func noopKiller(_ string) error       { return nil }
-
-func noopKeygen(_ string) (*AgeKeypair, error) {
-	return &AgeKeypair{PrivKeyPath: "/tmp/age.key", PublicKey: "age1testpubkey"}, nil
-}
-
-func noopRecipientEncrypter(_, _, _ string) error { return nil }
-func noopRepoProvisioner(_, _ string, _ []string) error { return nil }
+func noopCloner(_, _ string) error                        { return nil }
+func noopKiller(_ string) error                            { return nil }
+func noopTokenWriter(_, _ string) error                    { return nil }
+func noopRepoProvisioner(_, _ string, _ []string) error    { return nil }
 
 func noopRegisterer(_, _, _ string) (*msg.Registration, error) {
 	return &msg.Registration{AccessToken: "tok_test"}, nil
@@ -79,7 +74,7 @@ func TestRunCloneUnknownAgent(t *testing.T) {
 	setupAgentFixtures(t, []string{"commit", "pr"})
 	err := runClone("git@github.com:zoobzio/vicky.git", []string{"bogus"}, false,
 		noopCloner, noopChecker, noopKiller,
-		noopRegisterer, noopLogin, noopKeygen, noopRecipientEncrypter,
+		noopRegisterer, noopLogin, noopTokenWriter,
 		noopRegLoader, noopRegSaver, noopRepoProvisioner)
 	jtesting.AssertError(t, err)
 	jtesting.AssertEqual(t, strings.Contains(err.Error(), "agent directory not found"), true)
@@ -104,7 +99,7 @@ func TestRunCloneSuccess(t *testing.T) {
 
 	err := runClone("git@github.com:zoobzio/vicky.git", []string{"blue"}, false,
 		cloner, noopChecker, noopKiller,
-		noopRegisterer, noopLogin, noopKeygen, noopRecipientEncrypter,
+		noopRegisterer, noopLogin, noopTokenWriter,
 		noopRegLoader, saver, noopRepoProvisioner)
 	jtesting.AssertNoError(t, err)
 	jtesting.AssertEqual(t, len(clonedURLs), 1)
@@ -131,7 +126,7 @@ func TestRunCloneMultipleAgents(t *testing.T) {
 
 	err := runClone("git@github.com:zoobzio/vicky.git", []string{"blue", "red"}, false,
 		noopCloner, noopChecker, noopKiller,
-		noopRegisterer, noopLogin, noopKeygen, noopRecipientEncrypter,
+		noopRegisterer, noopLogin, noopTokenWriter,
 		noopRegLoader, saver, noopRepoProvisioner)
 	jtesting.AssertNoError(t, err)
 	jtesting.AssertEqual(t, len(savedReg.Projects), 2)
@@ -139,7 +134,7 @@ func TestRunCloneMultipleAgents(t *testing.T) {
 	jtesting.AssertEqual(t, savedReg.Find("red", "vicky") != nil, true)
 }
 
-func TestRunCloneRegistersAndEncrypts(t *testing.T) {
+func TestRunCloneRegistersAndStoresToken(t *testing.T) {
 	newTestConfig()
 	setupAgentFixtures(t, []string{"commit", "pr"})
 
@@ -149,30 +144,21 @@ func TestRunCloneRegistersAndEncrypts(t *testing.T) {
 		return &msg.Registration{AccessToken: "tok_new"}, nil
 	}
 
-	var keygenPath string
-	keygen := func(outPath string) (*AgeKeypair, error) {
-		keygenPath = outPath
-		return &AgeKeypair{PrivKeyPath: outPath, PublicKey: "age1testpubkey"}, nil
-	}
-
-	var encryptedToken, encryptedRecipient, encryptedPath string
-	encrypter := func(token, recipient, outPath string) error {
-		encryptedToken = token
-		encryptedRecipient = recipient
-		encryptedPath = outPath
+	var storedToken, storedPath string
+	writer := func(token, outPath string) error {
+		storedToken = token
+		storedPath = outPath
 		return nil
 	}
 
 	err := runClone("git@github.com:zoobzio/vicky.git", []string{"blue"}, false,
 		noopCloner, noopChecker, noopKiller,
-		registerer, noopLogin, keygen, encrypter,
+		registerer, noopLogin, writer,
 		noopRegLoader, noopRegSaver, noopRepoProvisioner)
 	jtesting.AssertNoError(t, err)
 	jtesting.AssertEqual(t, registeredUsername, "blue-vicky")
-	jtesting.AssertEqual(t, encryptedToken, "tok_new")
-	jtesting.AssertEqual(t, encryptedRecipient, "age1testpubkey")
-	jtesting.AssertEqual(t, strings.HasSuffix(encryptedPath, ".jack/token.age"), true)
-	jtesting.AssertEqual(t, strings.HasSuffix(keygenPath, ".jack/age.key"), true)
+	jtesting.AssertEqual(t, storedToken, "tok_new")
+	jtesting.AssertEqual(t, strings.HasSuffix(storedPath, ".jack/token"), true)
 }
 
 func TestRunCloneValidationFailsMissingAgent(t *testing.T) {
@@ -182,7 +168,7 @@ func TestRunCloneValidationFailsMissingAgent(t *testing.T) {
 
 	err := runClone("git@github.com:zoobzio/vicky.git", []string{"blue"}, false,
 		noopCloner, noopChecker, noopKiller,
-		noopRegisterer, noopLogin, noopKeygen, noopRecipientEncrypter,
+		noopRegisterer, noopLogin, noopTokenWriter,
 		noopRegLoader, noopRegSaver, noopRepoProvisioner)
 	jtesting.AssertError(t, err)
 	jtesting.AssertEqual(t, strings.Contains(err.Error(), "agent directory not found"), true)
@@ -204,7 +190,7 @@ func TestRunCloneSkipsExisting(t *testing.T) {
 
 	err := runClone("git@github.com:zoobzio/vicky.git", []string{"blue"}, false,
 		cloner, noopChecker, noopKiller,
-		noopRegisterer, noopLogin, noopKeygen, noopRecipientEncrypter,
+		noopRegisterer, noopLogin, noopTokenWriter,
 		noopRegLoader, noopRegSaver, noopRepoProvisioner)
 	jtesting.AssertNoError(t, err)
 	jtesting.AssertEqual(t, cloned, false)
@@ -234,7 +220,7 @@ func TestRunCloneForceReplacesExisting(t *testing.T) {
 
 	err := runClone("git@github.com:zoobzio/vicky.git", []string{"blue"}, true,
 		cloner, hasSession, killer,
-		noopRegisterer, noopLogin, noopKeygen, noopRecipientEncrypter,
+		noopRegisterer, noopLogin, noopTokenWriter,
 		noopRegLoader, noopRegSaver, noopRepoProvisioner)
 	jtesting.AssertNoError(t, err)
 	jtesting.AssertEqual(t, cloned, true)

@@ -37,7 +37,7 @@ var noopAnnounceRepo RepoAnnouncer = func(_, _, _ string) error { return nil }
 
 func TestRunInEmptyRegistry(t *testing.T) {
 	err := runIn("", "", stubRegistry(), failSelector, failProjectSelector,
-		noopChecker, noopCreator, noopAttacher, noopAdder, noopDecrypter, noopGHReader, noopAnnounceRepo)
+		noopChecker, noopCreator, noopAttacher, noopAdder, noopGHReader, noopAnnounceRepo)
 	jtesting.AssertError(t, err)
 	jtesting.AssertEqual(t, strings.Contains(err.Error(), "no projects cloned"), true)
 }
@@ -45,7 +45,7 @@ func TestRunInEmptyRegistry(t *testing.T) {
 func TestRunInNoProjectsForAgent(t *testing.T) {
 	reg := stubRegistry(RegistryEntry{Agent: "blue", Repo: "vicky"})
 	err := runIn("red", "", reg, failSelector, failProjectSelector,
-		noopChecker, noopCreator, noopAttacher, noopAdder, noopDecrypter, noopGHReader, noopAnnounceRepo)
+		noopChecker, noopCreator, noopAttacher, noopAdder, noopGHReader, noopAnnounceRepo)
 	jtesting.AssertError(t, err)
 	jtesting.AssertEqual(t, strings.Contains(err.Error(), "no projects cloned for agent"), true)
 }
@@ -63,7 +63,7 @@ func TestRunInAttachesExistingSession(t *testing.T) {
 	}
 
 	err := runIn("blue", "vicky", reg, failSelector, failProjectSelector,
-		existsChecker, noopCreator, attacher, noopAdder, noopDecrypter, noopGHReader, noopAnnounceRepo)
+		existsChecker, noopCreator, attacher, noopAdder, noopGHReader, noopAnnounceRepo)
 	jtesting.AssertNoError(t, err)
 	jtesting.AssertEqual(t, attachedName, "blue-vicky")
 }
@@ -85,7 +85,7 @@ func TestRunInCreatesAndAttaches(t *testing.T) {
 	}
 
 	err := runIn("blue", "vicky", reg, failSelector, failProjectSelector,
-		noopChecker, creator, attacher, noopAdder, noopDecrypter, noopGHReader, noopAnnounceRepo)
+		noopChecker, creator, attacher, noopAdder, noopGHReader, noopAnnounceRepo)
 	jtesting.AssertNoError(t, err)
 	jtesting.AssertEqual(t, createdName, "blue-vicky")
 	jtesting.AssertEqual(t, attachedName, "blue-vicky")
@@ -105,7 +105,7 @@ func TestRunInAutoSelectsSingleAgent(t *testing.T) {
 
 	// No agent or project specified — should auto-select the only agent and project.
 	err := runIn("", "", reg, failSelector, failProjectSelector,
-		noopChecker, noopCreator, attacher, noopAdder, noopDecrypter, noopGHReader, noopAnnounceRepo)
+		noopChecker, noopCreator, attacher, noopAdder, noopGHReader, noopAnnounceRepo)
 	jtesting.AssertNoError(t, err)
 	jtesting.AssertEqual(t, attachedName, "blue-vicky")
 }
@@ -127,7 +127,7 @@ func TestRunInPromptsForAgent(t *testing.T) {
 	}
 
 	err := runIn("", "", reg, agentSel, failProjectSelector,
-		noopChecker, noopCreator, noopAttacher, noopAdder, noopDecrypter, noopGHReader, noopAnnounceRepo)
+		noopChecker, noopCreator, noopAttacher, noopAdder, noopGHReader, noopAnnounceRepo)
 	jtesting.AssertNoError(t, err)
 	jtesting.AssertEqual(t, selectedAgent, "red")
 }
@@ -148,12 +148,12 @@ func TestRunInPromptsForProject(t *testing.T) {
 	}
 
 	err := runIn("blue", "", reg, failSelector, projSel,
-		noopChecker, noopCreator, noopAttacher, noopAdder, noopDecrypter, noopGHReader, noopAnnounceRepo)
+		noopChecker, noopCreator, noopAttacher, noopAdder, noopGHReader, noopAnnounceRepo)
 	jtesting.AssertNoError(t, err)
 	jtesting.AssertEqual(t, selectedProject, "flux")
 }
 
-func TestRunInDecryptsToken(t *testing.T) {
+func TestRunInReadsToken(t *testing.T) {
 	newTestConfig()
 	dir := t.TempDir()
 	env = Env{DataDir: dir, ConfigDir: t.TempDir()}
@@ -162,24 +162,21 @@ func TestRunInDecryptsToken(t *testing.T) {
 	projDir := filepath.Join(dir, "blue", "vicky")
 	jackDir := filepath.Join(projDir, ".jack")
 	_ = os.MkdirAll(jackDir, 0o750)
-	_ = os.WriteFile(filepath.Join(jackDir, "token.age"), []byte("encrypted"), 0o600)
+	_ = os.WriteFile(filepath.Join(jackDir, "token"), []byte("tok_plaintext"), 0o600)
 
 	reg := stubRegistry(RegistryEntry{Agent: "blue", Repo: "vicky"})
 
 	creator := func(_, _, _ string) error { return nil }
-	decrypter := func(_, _ string) (string, error) {
-		return "tok_decrypted", nil
-	}
 
 	err := runIn("blue", "vicky", reg, failSelector, failProjectSelector,
-		noopChecker, creator, noopAttacher, noopAdder, decrypter, noopGHReader, noopAnnounceRepo)
+		noopChecker, creator, noopAttacher, noopAdder, noopGHReader, noopAnnounceRepo)
 	jtesting.AssertNoError(t, err)
 
 	// The .env file is written at the project root — verify the token is in it.
 	dotEnvPath := filepath.Join(projDir, ".env")
 	dotEnvContent, err := os.ReadFile(dotEnvPath)
 	jtesting.AssertNoError(t, err)
-	jtesting.AssertEqual(t, strings.Contains(string(dotEnvContent), "export JACK_MSG_TOKEN=tok_decrypted"), true)
+	jtesting.AssertEqual(t, strings.Contains(string(dotEnvContent), "export JACK_MSG_TOKEN=tok_plaintext"), true)
 }
 
 func TestRunInReadsGHToken(t *testing.T) {
@@ -200,7 +197,7 @@ func TestRunInReadsGHToken(t *testing.T) {
 	}
 
 	err := runIn("blue", "vicky", reg, failSelector, failProjectSelector,
-		noopChecker, creator, noopAttacher, noopAdder, noopDecrypter, ghReader, noopAnnounceRepo)
+		noopChecker, creator, noopAttacher, noopAdder, ghReader, noopAnnounceRepo)
 	jtesting.AssertNoError(t, err)
 
 	// Verify GH_TOKEN is in the .env file.
@@ -217,7 +214,7 @@ func TestRunInUnknownAgentProfile(t *testing.T) {
 	reg := stubRegistry(RegistryEntry{Agent: "unknown", Repo: "vicky"})
 
 	err := runIn("unknown", "vicky", reg, failSelector, failProjectSelector,
-		noopChecker, noopCreator, noopAttacher, noopAdder, noopDecrypter, noopGHReader, noopAnnounceRepo)
+		noopChecker, noopCreator, noopAttacher, noopAdder, noopGHReader, noopAnnounceRepo)
 	jtesting.AssertError(t, err)
 	jtesting.AssertEqual(t, strings.Contains(err.Error(), "unknown agent"), true)
 }
@@ -230,7 +227,7 @@ func TestRunInAnnouncesOnRepoChannel(t *testing.T) {
 	projDir := filepath.Join(dir, "blue", "vicky")
 	jackDir := filepath.Join(projDir, ".jack")
 	_ = os.MkdirAll(jackDir, 0o750)
-	_ = os.WriteFile(filepath.Join(jackDir, "token.age"), []byte("encrypted"), 0o600)
+	_ = os.WriteFile(filepath.Join(jackDir, "token"), []byte("tok_session"), 0o600)
 
 	reg := stubRegistry(RegistryEntry{Agent: "blue", Repo: "vicky"})
 
@@ -241,12 +238,9 @@ func TestRunInAnnouncesOnRepoChannel(t *testing.T) {
 		announcedMsg = message
 		return nil
 	}
-	decrypter := func(_, _ string) (string, error) {
-		return "tok_session", nil
-	}
 
 	err := runIn("blue", "vicky", reg, failSelector, failProjectSelector,
-		noopChecker, noopCreator, noopAttacher, noopAdder, decrypter, noopGHReader, announcer)
+		noopChecker, noopCreator, noopAttacher, noopAdder, noopGHReader, announcer)
 	jtesting.AssertNoError(t, err)
 	jtesting.AssertEqual(t, announcedToken, "tok_session")
 	jtesting.AssertEqual(t, announcedRepo, "vicky")

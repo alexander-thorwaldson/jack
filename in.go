@@ -30,13 +30,13 @@ var inCmd = &cobra.Command{
 			loadRegistry,
 			selectAgent, selectProject,
 			HasSession, CreateSession, AttachSession,
-			sshAdd, ageDecrypt, readGHToken,
+			sshAdd, readGHToken,
 			msg.AnnounceOnRepoChannel,
 		)
 	},
 }
 
-func runIn(agent, project string, loadReg RegistryLoader, selAgent AgentSelector, selProject ProjectSelector, hasSession SessionChecker, createSession SessionCreator, attach SessionAttacher, addKey KeyAdder, decrypt TokenDecrypter, readGH GHTokenReader, announce RepoAnnouncer) error {
+func runIn(agent, project string, loadReg RegistryLoader, selAgent AgentSelector, selProject ProjectSelector, hasSession SessionChecker, createSession SessionCreator, attach SessionAttacher, addKey KeyAdder, readGH GHTokenReader, announce RepoAnnouncer) error {
 	reg, err := loadReg()
 	if err != nil {
 		return fmt.Errorf("loading registry: %w", err)
@@ -97,17 +97,8 @@ func runIn(agent, project string, loadReg RegistryLoader, selAgent AgentSelector
 		}
 	}
 
-	// Decrypt Matrix token using the session's age keypair.
-	var token string
-	agePath := tokenAgePath(dir)
-	if _, statErr := os.Stat(agePath); statErr == nil {
-		privKeyPath := ageKeyPath(dir)
-		t, decErr := decrypt(privKeyPath, agePath)
-		if decErr != nil {
-			return fmt.Errorf("decrypting token: %w", decErr)
-		}
-		token = t
-	}
+	// Read Matrix token.
+	token, _ := readToken(dir)
 
 	// Read plaintext GitHub token.
 	ghToken, err := readGH(agent)

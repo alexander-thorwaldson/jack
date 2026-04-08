@@ -31,14 +31,14 @@ var cloneCmd = &cobra.Command{
 		agents, _ := cmd.Flags().GetStringSlice("agent")
 		force, _ := cmd.Flags().GetBool("force")
 		client := msg.NewClient(msg.Homeserver, "")
-		return runClone(args[0], agents, force, gitClone, HasSession, KillSession, client.Register, client.Login, ageKeygen, ageEncryptToRecipient, loadRegistry, saveRegistry, msg.ProvisionRepoChannel)
+		return runClone(args[0], agents, force, gitClone, HasSession, KillSession, client.Register, client.Login, writeToken, loadRegistry, saveRegistry, msg.ProvisionRepoChannel)
 	},
 }
 
 // RepoProvisioner creates a per-repo Matrix channel and invites other agents.
 type RepoProvisioner func(token, repo string, inviteUserIDs []string) error
 
-func runClone(url string, agents []string, force bool, clone Cloner, hasSession SessionChecker, kill SessionKiller, register msg.Registerer, login msg.Authenticator, keygen KeypairGenerator, encrypt TokenEncrypterByRecipient, loadReg RegistryLoader, saveReg RegistrySaver, provisionRepo RepoProvisioner) error {
+func runClone(url string, agents []string, force bool, clone Cloner, hasSession SessionChecker, kill SessionKiller, register msg.Registerer, login msg.Authenticator, storeToken TokenWriter, loadReg RegistryLoader, saveReg RegistrySaver, provisionRepo RepoProvisioner) error {
 	repo := repoName(url)
 	if repo == "" {
 		return fmt.Errorf("cannot extract repo name from %q", url)
@@ -108,15 +108,9 @@ func runClone(url string, agents []string, force bool, clone Cloner, hasSession 
 			}
 		}
 
-		// Generate age keypair for token encryption.
-		keypair, err := keygen(ageKeyPath(dir))
-		if err != nil {
-			return fmt.Errorf("generating age keypair for %s: %w", username, err)
-		}
-
-		// Encrypt and store the Matrix token.
-		if err := encrypt(mReg.AccessToken, keypair.PublicKey, tokenAgePath(dir)); err != nil {
-			return fmt.Errorf("encrypting token for %s: %w", username, err)
+		// Store the Matrix token.
+		if err := storeToken(mReg.AccessToken, tokenPath(dir)); err != nil {
+			return fmt.Errorf("storing token for %s: %w", username, err)
 		}
 
 		// Record in registry.

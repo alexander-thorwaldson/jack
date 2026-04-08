@@ -5,47 +5,37 @@ package jack
 import (
 	"os"
 	"path/filepath"
-	"strings"
 	"testing"
 
 	jtesting "github.com/zoobzio/jack/testing"
 )
 
-func TestTokenAgePath(t *testing.T) {
-	jtesting.AssertEqual(t, tokenAgePath("/home/user/.jack/blue/vicky"), "/home/user/.jack/blue/vicky/.jack/token.age")
+func TestTokenPath(t *testing.T) {
+	jtesting.AssertEqual(t, tokenPath("/home/user/.jack/blue/vicky"), "/home/user/.jack/blue/vicky/.jack/token")
 }
 
+func TestWriteAndReadToken(t *testing.T) {
+	dir := t.TempDir()
+	outPath := filepath.Join(dir, ".jack", "token")
 
+	err := writeToken("tok_test123", outPath)
+	jtesting.AssertNoError(t, err)
 
-func TestAgeKeyPath(t *testing.T) {
-	jtesting.AssertEqual(t, ageKeyPath("/home/user/.jack/blue/vicky"), "/home/user/.jack/blue/vicky/.jack/age.key")
+	token, err := readToken(dir)
+	jtesting.AssertNoError(t, err)
+	jtesting.AssertEqual(t, token, "tok_test123")
+}
+
+func TestReadTokenMissing(t *testing.T) {
+	dir := t.TempDir()
+	token, err := readToken(dir)
+	jtesting.AssertNoError(t, err)
+	jtesting.AssertEqual(t, token, "")
 }
 
 func TestGhTokenPath(t *testing.T) {
 	env = Env{ConfigDir: "/home/user/.config/jack"}
 	jtesting.AssertEqual(t, ghTokenPath("blue"), "/home/user/.config/jack/agents/blue/.github-token")
-}
-
-func TestReadAgePublicKey(t *testing.T) {
-	dir := t.TempDir()
-	keyFile := filepath.Join(dir, "age.key")
-	content := "# created: 2024-01-01T00:00:00Z\n# public key: age1testpublickey123\nAGE-SECRET-KEY-1FAKE\n"
-	_ = os.WriteFile(keyFile, []byte(content), 0o600)
-
-	pubKey, err := readAgePublicKey(keyFile)
-	jtesting.AssertNoError(t, err)
-	jtesting.AssertEqual(t, pubKey, "age1testpublickey123")
-}
-
-func TestReadAgePublicKeyMissing(t *testing.T) {
-	dir := t.TempDir()
-	keyFile := filepath.Join(dir, "age.key")
-	content := "# created: 2024-01-01T00:00:00Z\nAGE-SECRET-KEY-1FAKE\n"
-	_ = os.WriteFile(keyFile, []byte(content), 0o600)
-
-	_, err := readAgePublicKey(keyFile)
-	jtesting.AssertError(t, err)
-	jtesting.AssertEqual(t, strings.Contains(err.Error(), "no public key found"), true)
 }
 
 func TestReadGHToken(t *testing.T) {
