@@ -18,8 +18,8 @@ func init() {
 
 var loadCmd = &cobra.Command{
 	Use:   "load",
-	Short: "Store a GitHub token for a project",
-	Long:  "Store a GitHub personal access token scoped to a project.\nThe token is used to set GH_TOKEN in sessions for all agents working on this project.",
+	Short: "Update a GitHub token for a project",
+	Long:  "Store or rotate a GitHub personal access token for a project.\nUse this to update an expired or compromised token without re-cloning.",
 	Args:  cobra.NoArgs,
 	RunE: func(cmd *cobra.Command, _ []string) error {
 		project, _ := cmd.Flags().GetString("project")
@@ -49,6 +49,6 @@ func runLoad(project string) error {
 		return fmt.Errorf("writing github token: %w", err)
 	}
 
-	fmt.Printf("GitHub token stored for project %s at %s\n", project, outPath)
+	fmt.Printf("GitHub token updated for project %s\n", project)
 	return nil
 }

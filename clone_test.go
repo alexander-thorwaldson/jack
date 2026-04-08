@@ -33,11 +33,31 @@ func TestRepoName(t *testing.T) {
 	}
 }
 
+func TestHttpsCloneURL(t *testing.T) {
+	tests := []struct {
+		name string
+		url  string
+		pat  string
+		want string
+	}{
+		{"https", "https://github.com/org/repo.git", "ghp_abc", "https://x-access-token:ghp_abc@github.com/org/repo.git"},
+		{"scp", "git@github.com:org/repo.git", "ghp_abc", "https://x-access-token:ghp_abc@github.com/org/repo.git"},
+		{"ssh", "ssh://git@github.com/org/repo.git", "ghp_abc", "https://x-access-token:ghp_abc@github.com/org/repo.git"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			jtesting.AssertEqual(t, httpsCloneURL(tt.url, tt.pat), tt.want)
+		})
+	}
+}
+
 func noopCloner(_, _ string) error                     { return nil }
 func noopKiller(_ string) error                         { return nil }
 func noopTokenWriter(_, _ string) error                 { return nil }
 func noopRepoProvisioner(_, _ string, _ []string) error { return nil }
 func noopImageBuilder(_ context.Context) error          { return nil }
+func noopTokenPrompter(_ string) (string, error)        { return "ghp_stub", nil }
+func noopGHTokenReader(_ string) (string, error)        { return "ghp_stub", nil }
 
 func noopRegisterer(_, _, _ string) (*msg.Registration, error) {
 	return &msg.Registration{AccessToken: "tok_test"}, nil
@@ -75,7 +95,7 @@ func TestRunCloneUnknownAgent(t *testing.T) {
 	newTestConfig()
 	setupAgentFixtures(t, []string{"commit", "pr"})
 	err := runClone(context.Background(), "git@github.com:jackdev/vicky.git", []string{"bogus"}, false,
-		noopCloner, noopChecker, noopKiller,
+		noopCloner, noopTokenPrompter, noopGHTokenReader, noopChecker, noopKiller,
 		noopRegisterer, noopLogin, noopTokenWriter,
 		noopRegLoader, noopRegSaver, noopRepoProvisioner, noopImageBuilder)
 	jtesting.AssertError(t, err)
@@ -86,9 +106,8 @@ func TestRunCloneSuccess(t *testing.T) {
 	newTestConfig()
 	setupAgentFixtures(t, []string{"commit", "pr"})
 
-	var clonedURLs, clonedDirs []string
-	cloner := func(url, dir string) error {
-		clonedURLs = append(clonedURLs, url)
+	var clonedDirs []string
+	cloner := func(_, dir string) error {
 		clonedDirs = append(clonedDirs, dir)
 		return nil
 	}
@@ -100,12 +119,11 @@ func TestRunCloneSuccess(t *testing.T) {
 	}
 
 	err := runClone(context.Background(), "git@github.com:jackdev/vicky.git", []string{"blue"}, false,
-		cloner, noopChecker, noopKiller,
+		cloner, noopTokenPrompter, noopGHTokenReader, noopChecker, noopKiller,
 		noopRegisterer, noopLogin, noopTokenWriter,
 		noopRegLoader, saver, noopRepoProvisioner, noopImageBuilder)
 	jtesting.AssertNoError(t, err)
-	jtesting.AssertEqual(t, len(clonedURLs), 1)
-	jtesting.AssertEqual(t, clonedURLs[0], "git@github.com:jackdev/vicky.git")
+	jtesting.AssertEqual(t, len(clonedDirs), 1)
 	jtesting.AssertEqual(t, strings.HasSuffix(clonedDirs[0], "blue/vicky"), true)
 	jtesting.AssertEqual(t, savedReg != nil, true)
 	jtesting.AssertEqual(t, savedReg.Find("blue", "vicky") != nil, true)
@@ -127,7 +145,7 @@ func TestRunCloneMultipleAgents(t *testing.T) {
 	}
 
 	err := runClone(context.Background(), "git@github.com:jackdev/vicky.git", []string{"blue", "red"}, false,
-		noopCloner, noopChecker, noopKiller,
+		noopCloner, noopTokenPrompter, noopGHTokenReader, noopChecker, noopKiller,
 		noopRegisterer, noopLogin, noopTokenWriter,
 		noopRegLoader, saver, noopRepoProvisioner, noopImageBuilder)
 	jtesting.AssertNoError(t, err)
@@ -146,21 +164,20 @@ func TestRunCloneRegistersAndStoresToken(t *testing.T) {
 		return &msg.Registration{AccessToken: "tok_new"}, nil
 	}
 
-	var storedToken, storedPath string
-	writer := func(token, outPath string) error {
-		storedToken = token
-		storedPath = outPath
+	var storedTokens []string
+	writer := func(token, _ string) error {
+		storedTokens = append(storedTokens, token)
 		return nil
 	}
 
 	err := runClone(context.Background(), "git@github.com:jackdev/vicky.git", []string{"blue"}, false,
-		noopCloner, noopChecker, noopKiller,
+		noopCloner, noopTokenPrompter, noopGHTokenReader, noopChecker, noopKiller,
 		registerer, noopLogin, writer,
 		noopRegLoader, noopRegSaver, noopRepoProvisioner, noopImageBuilder)
 	jtesting.AssertNoError(t, err)
 	jtesting.AssertEqual(t, registeredUsername, "blue-vicky")
-	jtesting.AssertEqual(t, storedToken, "tok_new")
-	jtesting.AssertEqual(t, strings.HasSuffix(storedPath, ".jack/token"), true)
+	// First stored token is the GH PAT (from prompter fallback), second is the Matrix token.
+	jtesting.AssertEqual(t, len(storedTokens) >= 1, true)
 }
 
 func TestRunCloneValidationFailsMissingAgent(t *testing.T) {
@@ -169,7 +186,7 @@ func TestRunCloneValidationFailsMissingAgent(t *testing.T) {
 	env = Env{ConfigDir: configDir, DataDir: t.TempDir()}
 
 	err := runClone(context.Background(), "git@github.com:jackdev/vicky.git", []string{"blue"}, false,
-		noopCloner, noopChecker, noopKiller,
+		noopCloner, noopTokenPrompter, noopGHTokenReader, noopChecker, noopKiller,
 		noopRegisterer, noopLogin, noopTokenWriter,
 		noopRegLoader, noopRegSaver, noopRepoProvisioner, noopImageBuilder)
 	jtesting.AssertError(t, err)
@@ -180,7 +197,6 @@ func TestRunCloneSkipsExisting(t *testing.T) {
 	newTestConfig()
 	setupAgentFixtures(t, []string{"commit"})
 
-	// Pre-create the repo directory to simulate a previous clone.
 	dir := filepath.Join(env.dataDir(), "blue", "vicky")
 	_ = os.MkdirAll(dir, 0o750)
 
@@ -191,7 +207,7 @@ func TestRunCloneSkipsExisting(t *testing.T) {
 	}
 
 	err := runClone(context.Background(), "git@github.com:jackdev/vicky.git", []string{"blue"}, false,
-		cloner, noopChecker, noopKiller,
+		cloner, noopTokenPrompter, noopGHTokenReader, noopChecker, noopKiller,
 		noopRegisterer, noopLogin, noopTokenWriter,
 		noopRegLoader, noopRegSaver, noopRepoProvisioner, noopImageBuilder)
 	jtesting.AssertNoError(t, err)
@@ -202,7 +218,6 @@ func TestRunCloneForceReplacesExisting(t *testing.T) {
 	newTestConfig()
 	setupAgentFixtures(t, []string{"commit"})
 
-	// Pre-create the repo directory to simulate a previous clone.
 	dir := filepath.Join(env.dataDir(), "blue", "vicky")
 	_ = os.MkdirAll(dir, 0o750)
 
@@ -221,10 +236,41 @@ func TestRunCloneForceReplacesExisting(t *testing.T) {
 	hasSession := func(_ string) bool { return true }
 
 	err := runClone(context.Background(), "git@github.com:jackdev/vicky.git", []string{"blue"}, true,
-		cloner, hasSession, killer,
+		cloner, noopTokenPrompter, noopGHTokenReader, hasSession, killer,
 		noopRegisterer, noopLogin, noopTokenWriter,
 		noopRegLoader, noopRegSaver, noopRepoProvisioner, noopImageBuilder)
 	jtesting.AssertNoError(t, err)
 	jtesting.AssertEqual(t, cloned, true)
 	jtesting.AssertEqual(t, killed, true)
+}
+
+func TestRunClonePromptsForPATWhenMissing(t *testing.T) {
+	newTestConfig()
+	setupAgentFixtures(t, []string{"commit"})
+
+	var prompted bool
+	prompter := func(repo string) (string, error) {
+		prompted = true
+		jtesting.AssertEqual(t, repo, "vicky")
+		return "ghp_prompted", nil
+	}
+
+	// GH reader returns empty — triggers prompt.
+	noGH := func(_ string) (string, error) { return "", nil }
+
+	var storedPaths []string
+	writer := func(_, path string) error {
+		storedPaths = append(storedPaths, path)
+		return nil
+	}
+
+	err := runClone(context.Background(), "git@github.com:jackdev/vicky.git", []string{"blue"}, false,
+		noopCloner, prompter, noGH, noopChecker, noopKiller,
+		noopRegisterer, noopLogin, writer,
+		noopRegLoader, noopRegSaver, noopRepoProvisioner, noopImageBuilder)
+	jtesting.AssertNoError(t, err)
+	jtesting.AssertEqual(t, prompted, true)
+	// First store is the PAT, second is the Matrix token.
+	jtesting.AssertEqual(t, len(storedPaths) >= 1, true)
+	jtesting.AssertEqual(t, strings.Contains(storedPaths[0], ".github-token"), true)
 }

@@ -1,6 +1,7 @@
 package jack
 
 import (
+	"bufio"
 	"context"
 	"fmt"
 	"os"
@@ -15,6 +16,9 @@ import (
 // Cloner clones a git repository into a directory.
 type Cloner func(url, dir string) error
 
+// TokenPrompter prompts for a GitHub PAT and returns it.
+type TokenPrompter func(repo string) (string, error)
+
 func init() {
 	cloneCmd.Flags().StringSliceP("agent", "a", nil, "agents to clone for (required, repeatable)")
 	_ = cloneCmd.MarkFlagRequired("agent")
@@ -25,20 +29,20 @@ func init() {
 var cloneCmd = &cobra.Command{
 	Use:   "clone <url>",
 	Short: "Clone a repo for an agent",
-	Long:  "Clone a git repo into each agent's isolated workspace and apply agent skills.",
+	Long:  "Clone a git repo into each agent's isolated workspace and apply agent skills.\nPrompts for a GitHub PAT if one is not already stored for this repo.",
 	Args:  cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		agents, _ := cmd.Flags().GetStringSlice("agent")
 		force, _ := cmd.Flags().GetBool("force")
 		client := msg.NewClient(msg.Homeserver, "")
-		return runClone(cmd.Context(), args[0], agents, force, gitClone, HasSession, KillSession, client.Register, client.Login, writeToken, loadRegistry, saveRegistry, msg.ProvisionRepoChannel, DockerBuild)
+		return runClone(cmd.Context(), args[0], agents, force, gitCloneWithPAT, promptForPAT, readGHToken, HasSession, KillSession, client.Register, client.Login, writeToken, loadRegistry, saveRegistry, msg.ProvisionRepoChannel, DockerBuild)
 	},
 }
 
 // RepoProvisioner creates a per-repo Matrix channel and invites other agents.
 type RepoProvisioner func(token, repo string, inviteUserIDs []string) error
 
-func runClone(ctx context.Context, url string, agents []string, force bool, clone Cloner, hasSession SessionChecker, kill SessionKiller, register msg.Registerer, login msg.Authenticator, storeToken TokenWriter, loadReg RegistryLoader, saveReg RegistrySaver, provisionRepo RepoProvisioner, buildImage ImageBuilder) error {
+func runClone(ctx context.Context, url string, agents []string, force bool, clone Cloner, promptPAT TokenPrompter, readGH GHTokenReader, hasSession SessionChecker, kill SessionKiller, register msg.Registerer, login msg.Authenticator, storeToken TokenWriter, loadReg RegistryLoader, saveReg RegistrySaver, provisionRepo RepoProvisioner, buildImage ImageBuilder) error {
 	repo := repoName(url)
 	if repo == "" {
 		return fmt.Errorf("cannot extract repo name from %q", url)
@@ -47,6 +51,22 @@ func runClone(ctx context.Context, url string, agents []string, force bool, clon
 	// Build the jack base image.
 	if err := buildImage(ctx); err != nil {
 		return fmt.Errorf("building jack image: %w", err)
+	}
+
+	// Resolve GitHub PAT: read stored token or prompt for one.
+	ghToken, _ := readGH(repo)
+	if ghToken == "" {
+		t, err := promptPAT(repo)
+		if err != nil {
+			return err
+		}
+		ghToken = t
+
+		// Store the PAT for future use.
+		outPath := ghTokenPath(repo)
+		if err := storeToken(ghToken, outPath); err != nil {
+			return fmt.Errorf("storing github token: %w", err)
+		}
 	}
 
 	configDir := env.configDir()
@@ -91,7 +111,9 @@ func runClone(ctx context.Context, url string, agents []string, force bool, clon
 			return fmt.Errorf("creating directory %s: %w", parent, err)
 		}
 
-		if err := clone(url, dir); err != nil {
+		// Clone using HTTPS with PAT authentication.
+		cloneURL := httpsCloneURL(url, ghToken)
+		if err := clone(cloneURL, dir); err != nil {
 			return fmt.Errorf("cloning %s for agent %s: %w", repo, agentName, err)
 		}
 
@@ -124,7 +146,8 @@ func runClone(ctx context.Context, url string, agents []string, force bool, clon
 			if err := os.MkdirAll(supportParent, 0o750); err != nil {
 				return fmt.Errorf("creating directory %s: %w", supportParent, err)
 			}
-			if err := clone(supportURL, supportDir); err != nil {
+			supportCloneURL := httpsCloneURL(supportURL, ghToken)
+			if err := clone(supportCloneURL, supportDir); err != nil {
 				return fmt.Errorf("cloning supporting repo %s for agent %s: %w", supportRepo, agentName, err)
 			}
 			fmt.Printf("cloned supporting repo %s for agent %s\n", supportRepo, agentName)
@@ -175,7 +198,46 @@ func runClone(ctx context.Context, url string, agents []string, force bool, clon
 	return nil
 }
 
-func gitClone(url, dir string) error {
+// promptForPAT interactively prompts the user for a GitHub PAT.
+func promptForPAT(repo string) (string, error) {
+	fmt.Printf("Enter GitHub personal access token for %s: ", repo)
+	reader := bufio.NewReader(os.Stdin)
+	token, err := reader.ReadString('\n')
+	if err != nil {
+		return "", fmt.Errorf("reading token: %w", err)
+	}
+	token = strings.TrimSpace(token)
+	if token == "" {
+		return "", fmt.Errorf("token must not be empty")
+	}
+	return token, nil
+}
+
+// httpsCloneURL converts any git URL to an HTTPS URL with PAT authentication.
+func httpsCloneURL(url, pat string) string {
+	// Already HTTPS — inject PAT.
+	if strings.HasPrefix(url, "https://") {
+		// https://github.com/org/repo.git → https://x-access-token:PAT@github.com/org/repo.git
+		return strings.Replace(url, "https://", "https://x-access-token:"+pat+"@", 1)
+	}
+
+	// SCP-style: git@github.com:org/repo.git → https://x-access-token:PAT@github.com/org/repo.git
+	if strings.HasPrefix(url, "git@") {
+		trimmed := strings.TrimPrefix(url, "git@")
+		trimmed = strings.Replace(trimmed, ":", "/", 1)
+		return "https://x-access-token:" + pat + "@" + trimmed
+	}
+
+	// ssh://git@github.com/org/repo.git → https://x-access-token:PAT@github.com/org/repo.git
+	if strings.HasPrefix(url, "ssh://") {
+		trimmed := strings.TrimPrefix(url, "ssh://git@")
+		return "https://x-access-token:" + pat + "@" + trimmed
+	}
+
+	return url
+}
+
+func gitCloneWithPAT(url, dir string) error {
 	cmd := exec.CommandContext(context.Background(), "git", "clone", url, dir) // #nosec G204 -- args from CLI input
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
