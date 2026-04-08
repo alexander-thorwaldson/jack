@@ -37,7 +37,7 @@ func TestBuildShellCmd(t *testing.T) {
 
 	jtesting.AssertEqual(t, strings.Contains(cmd, `git config user.name "Test User"`), true)
 	jtesting.AssertEqual(t, strings.Contains(cmd, `git config user.email "test@example.com"`), true)
-	jtesting.AssertEqual(t, strings.Contains(cmd, "claude --dangerously-skip-permissions --teammate-mode in-process"), true)
+	jtesting.AssertEqual(t, strings.Contains(cmd, "claude --dangerously-skip-permissions"), true)
 	jtesting.AssertEqual(t, strings.Contains(cmd, " && "), true)
 	jtesting.AssertEqual(t, strings.Contains(cmd, ". /home/user/project/.env"), true)
 }
@@ -49,7 +49,7 @@ func TestBuildShellCmdNoGitConfig(t *testing.T) {
 
 	jtesting.AssertEqual(t, strings.Contains(cmd, "git config"), false)
 	jtesting.AssertEqual(t, strings.Contains(cmd, ". /tmp/.env"), true)
-	jtesting.AssertEqual(t, strings.Contains(cmd, "exec claude --dangerously-skip-permissions --teammate-mode in-process"), true)
+	jtesting.AssertEqual(t, strings.Contains(cmd, "exec claude --dangerously-skip-permissions"), true)
 }
 
 func TestBuildDotEnv(t *testing.T) {

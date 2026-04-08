@@ -45,7 +45,7 @@ func buildShellCmd(profile Profile, dir string) string {
 	// Source the .env file for session variables.
 	parts = append(parts, fmt.Sprintf("set -a && . %s/.env && set +a", dir))
 
-	parts = append(parts, "exec claude --dangerously-skip-permissions --teammate-mode in-process")
+	parts = append(parts, "exec claude --dangerously-skip-permissions")
 	return strings.Join(parts, " && ")
 }
 
@@ -94,7 +94,7 @@ func buildBwrapShellCmd(profile Profile, dir string) string {
 		bwrap = append(bwrap, fmt.Sprintf("--ro-bind %s %s", sockDir, sockDir))
 	}
 
-	bwrap = append(bwrap, "-- claude --dangerously-skip-permissions --teammate-mode in-process")
+	bwrap = append(bwrap, "-- claude --dangerously-skip-permissions")
 
 	parts = append(parts, strings.Join(bwrap, " "))
 	return strings.Join(parts, " && ")
