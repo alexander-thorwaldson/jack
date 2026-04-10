@@ -41,22 +41,22 @@ func TestApplyAgentSuccess(t *testing.T) {
 	err := applyAgent("blue", dir)
 	jtesting.AssertNoError(t, err)
 
-	// CLAUDE.md symlinked.
-	claudeLink := filepath.Join(dir, ".claude", "CLAUDE.md")
-	target, err := os.Readlink(claudeLink)
+	// CLAUDE.md copied.
+	claudePath := filepath.Join(dir, ".claude", "CLAUDE.md")
+	data, err := os.ReadFile(claudePath)
 	jtesting.AssertNoError(t, err)
-	jtesting.AssertEqual(t, target, filepath.Join(agentDir, "CLAUDE.md"))
+	jtesting.AssertEqual(t, string(data), "instructions")
 
-	// Skills symlinked.
-	commitLink := filepath.Join(dir, ".claude", "commands", "commit")
-	target, err = os.Readlink(commitLink)
+	// Skills copied.
+	commitSkill := filepath.Join(dir, ".claude", "commands", "commit", "SKILL.md")
+	data, err = os.ReadFile(commitSkill)
 	jtesting.AssertNoError(t, err)
-	jtesting.AssertEqual(t, target, filepath.Join(agentSkillsDir, "commit"))
+	jtesting.AssertEqual(t, string(data), "commit")
 
-	prLink := filepath.Join(dir, ".claude", "commands", "pr")
-	target, err = os.Readlink(prLink)
+	prSkill := filepath.Join(dir, ".claude", "commands", "pr", "SKILL.md")
+	data, err = os.ReadFile(prSkill)
 	jtesting.AssertNoError(t, err)
-	jtesting.AssertEqual(t, target, filepath.Join(agentSkillsDir, "pr"))
+	jtesting.AssertEqual(t, string(data), "pr")
 }
 
 func TestApplyAgentNoSkills(t *testing.T) {
@@ -72,9 +72,10 @@ func TestApplyAgentNoSkills(t *testing.T) {
 	jtesting.AssertNoError(t, err)
 
 	// CLAUDE.md exists.
-	claudeLink := filepath.Join(dir, ".claude", "CLAUDE.md")
-	_, err = os.Readlink(claudeLink)
-	jtesting.AssertNoError(t, err)
+	claudePath := filepath.Join(dir, ".claude", "CLAUDE.md")
+	data, readErr := os.ReadFile(claudePath)
+	jtesting.AssertNoError(t, readErr)
+	jtesting.AssertEqual(t, string(data), "instructions")
 
 	// No commands dir created.
 	_, err = os.Stat(filepath.Join(dir, ".claude", "commands"))

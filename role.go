@@ -7,7 +7,8 @@ import (
 )
 
 // applyAgent provisions CLAUDE.md and skills into the repo's .claude directory.
-// Files are symlinked so the jack config directory remains the single source of truth.
+// Files are copied so they are available inside Docker containers where host
+// symlink targets are not reachable.
 func applyAgent(agentName, dir string) error {
 	configDir := env.configDir()
 	agentDir := filepath.Join(configDir, "agents", agentName)
@@ -17,17 +18,13 @@ func applyAgent(agentName, dir string) error {
 		return fmt.Errorf("creating .claude dir: %w", err)
 	}
 
-	// Symlink CLAUDE.md into .claude/.
+	// Copy CLAUDE.md into .claude/.
 	src := filepath.Join(agentDir, "CLAUDE.md")
-	resolved, err := filepath.EvalSymlinks(src)
-	if err != nil {
-		return fmt.Errorf("resolving CLAUDE.md for agent %q: %w", agentName, err)
-	}
-	if linkErr := os.Symlink(resolved, filepath.Join(claudeDir, "CLAUDE.md")); linkErr != nil {
-		return fmt.Errorf("linking CLAUDE.md for agent %q: %w", agentName, linkErr)
+	if err := copyFile(src, filepath.Join(claudeDir, "CLAUDE.md")); err != nil {
+		return fmt.Errorf("copying CLAUDE.md for agent %q: %w", agentName, err)
 	}
 
-	// Skills — symlink into .claude/commands/.
+	// Skills — copy into .claude/commands/.
 	skills, err := discoverAgentSkills(agentName)
 	if err != nil {
 		return err
@@ -39,13 +36,9 @@ func applyAgent(agentName, dir string) error {
 		}
 		for _, skill := range skills {
 			src := filepath.Join(agentDir, "skills", skill)
-			resolved, err := filepath.EvalSymlinks(src)
-			if err != nil {
-				return fmt.Errorf("resolving skill %q: %w", skill, err)
-			}
 			dst := filepath.Join(commandsDir, skill)
-			if err := os.Symlink(resolved, dst); err != nil {
-				return fmt.Errorf("linking skill %q: %w", skill, err)
+			if err := copyPath(src, dst); err != nil {
+				return fmt.Errorf("copying skill %q: %w", skill, err)
 			}
 		}
 	}
@@ -65,23 +58,19 @@ func applyRepo(repo, dir string) error {
 		return nil
 	}
 
-	// Symlink dev.sh into .jack/ if it exists.
+	// Copy dev.sh into .jack/ if it exists.
 	devSh := filepath.Join(repoDir, "dev.sh")
 	if _, err := os.Stat(devSh); err == nil {
 		jackDir := filepath.Join(dir, ".jack")
 		if err := os.MkdirAll(jackDir, 0o750); err != nil {
 			return fmt.Errorf("creating .jack dir: %w", err)
 		}
-		resolved, err := filepath.EvalSymlinks(devSh)
-		if err != nil {
-			return fmt.Errorf("resolving dev.sh for repo %q: %w", repo, err)
-		}
-		if err := os.Symlink(resolved, filepath.Join(jackDir, "dev.sh")); err != nil {
-			return fmt.Errorf("linking dev.sh for repo %q: %w", repo, err)
+		if err := copyFile(devSh, filepath.Join(jackDir, "dev.sh")); err != nil {
+			return fmt.Errorf("copying dev.sh for repo %q: %w", repo, err)
 		}
 	}
 
-	// Symlink repo CLAUDE.md into .claude/ if it exists.
+	// Copy repo CLAUDE.md into .claude/ if it exists.
 	// This is placed alongside the agent CLAUDE.md — Claude Code merges them.
 	repoClaudeMD := filepath.Join(repoDir, "CLAUDE.md")
 	if _, err := os.Stat(repoClaudeMD); err == nil {
@@ -89,17 +78,13 @@ func applyRepo(repo, dir string) error {
 		if err := os.MkdirAll(claudeDir, 0o750); err != nil {
 			return fmt.Errorf("creating .claude dir: %w", err)
 		}
-		resolved, err := filepath.EvalSymlinks(repoClaudeMD)
-		if err != nil {
-			return fmt.Errorf("resolving CLAUDE.md for repo %q: %w", repo, err)
-		}
 		dst := filepath.Join(claudeDir, "CLAUDE.local.md")
-		if err := os.Symlink(resolved, dst); err != nil {
-			return fmt.Errorf("linking CLAUDE.md for repo %q: %w", repo, err)
+		if err := copyFile(repoClaudeMD, dst); err != nil {
+			return fmt.Errorf("copying CLAUDE.md for repo %q: %w", repo, err)
 		}
 	}
 
-	// Symlink repo skills into .claude/commands/.
+	// Copy repo skills into .claude/commands/.
 	skills, err := discoverRepoSkills(repo)
 	if err != nil {
 		return nil // non-fatal if skills dir is missing
@@ -111,21 +96,58 @@ func applyRepo(repo, dir string) error {
 		}
 		for _, skill := range skills {
 			src := filepath.Join(repoDir, "skills", skill)
-			resolved, err := filepath.EvalSymlinks(src)
-			if err != nil {
-				return fmt.Errorf("resolving repo skill %q: %w", skill, err)
-			}
 			dst := filepath.Join(commandsDir, skill)
 			// Skip if already exists (agent skill takes precedence).
 			if _, err := os.Lstat(dst); err == nil {
 				continue
 			}
-			if err := os.Symlink(resolved, dst); err != nil {
-				return fmt.Errorf("linking repo skill %q: %w", skill, err)
+			if err := copyFile(src, dst); err != nil {
+				return fmt.Errorf("copying repo skill %q: %w", skill, err)
 			}
 		}
 	}
 
+	return nil
+}
+
+// copyPath copies src to dst. If src is a file, it is copied directly.
+// If src is a directory, it is copied recursively. Symlinks are followed.
+func copyPath(src, dst string) error {
+	info, err := os.Stat(src)
+	if err != nil {
+		return err
+	}
+	if info.IsDir() {
+		return copyDir(src, dst)
+	}
+	return copyFile(src, dst)
+}
+
+// copyFile reads src (following symlinks) and writes a regular file at dst.
+func copyFile(src, dst string) error {
+	data, err := os.ReadFile(src) // #nosec G304 -- paths from trusted agent config
+	if err != nil {
+		return err
+	}
+	return os.WriteFile(dst, data, 0o600) // #nosec G703 -- paths from trusted agent/repo config
+}
+
+// copyDir recursively copies a directory tree.
+func copyDir(src, dst string) error {
+	if err := os.MkdirAll(dst, 0o750); err != nil {
+		return err
+	}
+	entries, err := os.ReadDir(src)
+	if err != nil {
+		return err
+	}
+	for _, e := range entries {
+		s := filepath.Join(src, e.Name())
+		d := filepath.Join(dst, e.Name())
+		if err := copyPath(s, d); err != nil {
+			return err
+		}
+	}
 	return nil
 }
 

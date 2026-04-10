@@ -13,8 +13,9 @@ import (
 	"jack.dev/jack/msg"
 )
 
-// Cloner clones a git repository into a directory.
-type Cloner func(url, dir string) error
+// Cloner clones a git repository into a directory, authenticating with the
+// given PAT via a credential helper (never embedded in the URL).
+type Cloner func(url, dir, pat string) error
 
 // TokenPrompter prompts for a GitHub PAT and returns it.
 type TokenPrompter func(repo string) (string, error)
@@ -35,7 +36,7 @@ var cloneCmd = &cobra.Command{
 		agents, _ := cmd.Flags().GetStringSlice("agent")
 		force, _ := cmd.Flags().GetBool("force")
 		client := msg.NewClient(msg.Homeserver, "")
-		return runClone(cmd.Context(), args[0], agents, force, gitCloneWithPAT, promptForPAT, readGHToken, HasSession, KillSession, client.Register, client.Login, writeToken, loadRegistry, saveRegistry, msg.ProvisionRepoChannel, DockerBuild)
+		return runClone(cmd.Context(), args[0], agents, force, gitCloneWithCredHelper, promptForPAT, readGHToken, HasSession, KillSession, client.Register, client.Login, writeToken, loadRegistry, saveRegistry, msg.ProvisionRepoChannel, DockerBuild)
 	},
 }
 
@@ -119,9 +120,9 @@ func runClone(ctx context.Context, url string, agents []string, force bool, clon
 			return fmt.Errorf("creating directory %s: %w", parent, err)
 		}
 
-		// Clone using HTTPS with PAT authentication.
-		cloneURL := httpsCloneURL(url, ghToken)
-		if err := clone(cloneURL, dir); err != nil {
+		// Clone using HTTPS with credential helper authentication.
+		cloneURL := httpsURL(url)
+		if err := clone(cloneURL, dir, ghToken); err != nil {
 			return fmt.Errorf("cloning %s for agent %s: %w", repo, agentName, err)
 		}
 
@@ -154,8 +155,8 @@ func runClone(ctx context.Context, url string, agents []string, force bool, clon
 			if err := os.MkdirAll(supportParent, 0o750); err != nil {
 				return fmt.Errorf("creating directory %s: %w", supportParent, err)
 			}
-			supportCloneURL := httpsCloneURL(supportURL, ghToken)
-			if err := clone(supportCloneURL, supportDir); err != nil {
+			supportCloneURL := httpsURL(supportURL)
+			if err := clone(supportCloneURL, supportDir, ghToken); err != nil {
 				return fmt.Errorf("cloning supporting repo %s for agent %s: %w", supportRepo, agentName, err)
 			}
 			fmt.Printf("cloned supporting repo %s for agent %s\n", supportRepo, agentName)
@@ -221,32 +222,34 @@ func promptForPAT(repo string) (string, error) {
 	return token, nil
 }
 
-// httpsCloneURL converts any git URL to an HTTPS URL with PAT authentication.
-func httpsCloneURL(url, pat string) string {
-	// Already HTTPS — inject PAT.
+// httpsURL converts any git URL to a plain HTTPS URL (no credentials embedded).
+func httpsURL(url string) string {
 	if strings.HasPrefix(url, "https://") {
-		// https://github.com/org/repo.git → https://x-access-token:PAT@github.com/org/repo.git
-		return strings.Replace(url, "https://", "https://x-access-token:"+pat+"@", 1)
+		return url
 	}
 
-	// SCP-style: git@github.com:org/repo.git → https://x-access-token:PAT@github.com/org/repo.git
+	// SCP-style: git@github.com:org/repo.git → https://github.com/org/repo.git
 	if strings.HasPrefix(url, "git@") {
 		trimmed := strings.TrimPrefix(url, "git@")
 		trimmed = strings.Replace(trimmed, ":", "/", 1)
-		return "https://x-access-token:" + pat + "@" + trimmed
+		return "https://" + trimmed
 	}
 
-	// ssh://git@github.com/org/repo.git → https://x-access-token:PAT@github.com/org/repo.git
+	// ssh://git@github.com/org/repo.git → https://github.com/org/repo.git
 	if strings.HasPrefix(url, "ssh://") {
 		trimmed := strings.TrimPrefix(url, "ssh://git@")
-		return "https://x-access-token:" + pat + "@" + trimmed
+		return "https://" + trimmed
 	}
 
 	return url
 }
 
-func gitCloneWithPAT(url, dir string) error {
-	cmd := exec.CommandContext(context.Background(), "git", "clone", url, dir) // #nosec G204 -- args from CLI input
+// gitCloneWithCredHelper clones a repo using an environment-based credential
+// helper so the PAT is never embedded in the URL or command arguments.
+func gitCloneWithCredHelper(url, dir, pat string) error {
+	credHelper := `!f() { test "$1" = get && printf "protocol=https\nhost=github.com\nusername=x-access-token\npassword=%s\n" "$GH_TOKEN"; }; f` // #nosec G101 -- not a credential, this is a git credential helper template
+	cmd := exec.CommandContext(context.Background(), "git", "clone", "-c", "credential.helper="+credHelper, url, dir) // #nosec G204 -- args from CLI input
+	cmd.Env = append(os.Environ(), "GH_TOKEN="+pat)
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 	return cmd.Run()

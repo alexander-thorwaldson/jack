@@ -16,11 +16,31 @@ const jackImage = "jack"
 const baseDockerfile = `FROM node:22-slim
 RUN apt-get update && apt-get install -y --no-install-recommends \
     git openssh-client && rm -rf /var/lib/apt/lists/*
-RUN mkdir -p /root/.ssh && chmod 700 /root/.ssh \
-    && ssh-keyscan github.com >> /root/.ssh/known_hosts
+RUN useradd -m -s /bin/bash jack
+RUN mkdir -p /home/jack/.ssh && chmod 700 /home/jack/.ssh \
+    && ssh-keyscan github.com >> /home/jack/.ssh/known_hosts \
+    && chown -R jack:jack /home/jack/.ssh
 RUN npm install -g @anthropic-ai/claude-code
 COPY msg /usr/local/bin/msg
+COPY git-credential-gh-token /usr/local/bin/git-credential-gh-token
+RUN chmod +x /usr/local/bin/git-credential-gh-token
+RUN mkdir -p /workspace && chown jack:jack /workspace
+USER jack
+RUN git config --global credential.helper gh-token
 WORKDIR /workspace
+`
+
+// #nosec G101 -- not a credential, this is a git credential helper script
+const credentialHelper = `#!/bin/sh
+case "$1" in
+  get)
+    echo "protocol=https"
+    echo "host=github.com"
+    echo "username=x-access-token"
+    echo "password=${GH_TOKEN}"
+    echo ""
+    ;;
+esac
 `
 
 // Mount describes a Docker bind mount.
@@ -55,20 +75,21 @@ func ContainerName(agent, repo string) string {
 func SessionMounts(c Config, agent, repoDir string) []Mount {
 	home, _ := os.UserHomeDir()
 	mounts := []Mount{
-		{Source: filepath.Join(home, ".claude"), Target: "/root/.claude", ReadOnly: false},
+		{Source: filepath.Join(home, ".claude"), Target: "/home/jack/.claude", ReadOnly: false},
+		{Source: filepath.Join(home, ".claude.json"), Target: "/home/jack/.claude.json", ReadOnly: false},
 		{Source: repoDir, Target: "/workspace", ReadOnly: false},
 	}
 	// Mount agent certificate and CA root for MCP authentication.
 	if hasCert(agent) {
 		mounts = append(mounts,
-			Mount{Source: certPath(agent), Target: "/root/.jack/cert.pem", ReadOnly: true},
-			Mount{Source: keyPath(agent), Target: "/root/.jack/key.pem", ReadOnly: true},
+			Mount{Source: certPath(agent), Target: "/home/jack/.jack/cert.pem", ReadOnly: true},
+			Mount{Source: keyPath(agent), Target: "/home/jack/.jack/key.pem", ReadOnly: true},
 		)
 	}
 	if c.CA.Root != "" {
 		rootPath := expandHome(c.CA.Root)
 		if _, err := os.Stat(rootPath); err == nil {
-			mounts = append(mounts, Mount{Source: rootPath, Target: "/root/.jack/ca.pem", ReadOnly: true})
+			mounts = append(mounts, Mount{Source: rootPath, Target: "/home/jack/.jack/ca.pem", ReadOnly: true})
 		}
 	}
 
@@ -123,7 +144,7 @@ func DockerBuild(ctx context.Context) error {
 
 	// Cross-compile msg for the container (Linux, matching host arch).
 	binPath := filepath.Join(dir, "msg")
-	goBuild := exec.CommandContext(ctx, "go", "build", "-o", binPath, "./cmd/msg") // #nosec G204 -- args from internal paths
+	goBuild := exec.CommandContext(ctx, "go", "build", "-o", binPath, "jack.dev/jack/cmd/msg") // #nosec G204 -- args from internal paths
 	goBuild.Env = append(os.Environ(), "GOOS=linux", "GOARCH="+runtime.GOARCH, "CGO_ENABLED=0")
 	goBuild.Stdout = os.Stdout
 	goBuild.Stderr = os.Stderr
@@ -134,6 +155,11 @@ func DockerBuild(ctx context.Context) error {
 	dockerfilePath := filepath.Join(dir, "Dockerfile")
 	if err := os.WriteFile(dockerfilePath, []byte(baseDockerfile), 0o600); err != nil {
 		return fmt.Errorf("writing Dockerfile: %w", err)
+	}
+
+	credHelperPath := filepath.Join(dir, "git-credential-gh-token")
+	if err := os.WriteFile(credHelperPath, []byte(credentialHelper), 0o600); err != nil { // Dockerfile COPY + chmod makes it executable
+		return fmt.Errorf("writing credential helper: %w", err)
 	}
 
 	cmd := exec.CommandContext(ctx, "docker", "build", "-t", jackImage, dir) // #nosec G204 -- args from internal constants

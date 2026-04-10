@@ -33,25 +33,24 @@ func TestRepoName(t *testing.T) {
 	}
 }
 
-func TestHttpsCloneURL(t *testing.T) {
+func TestHttpsURL(t *testing.T) {
 	tests := []struct {
 		name string
 		url  string
-		pat  string
 		want string
 	}{
-		{"https", "https://github.com/org/repo.git", "ghp_abc", "https://x-access-token:ghp_abc@github.com/org/repo.git"},
-		{"scp", "git@github.com:org/repo.git", "ghp_abc", "https://x-access-token:ghp_abc@github.com/org/repo.git"},
-		{"ssh", "ssh://git@github.com/org/repo.git", "ghp_abc", "https://x-access-token:ghp_abc@github.com/org/repo.git"},
+		{"https passthrough", "https://github.com/org/repo.git", "https://github.com/org/repo.git"},
+		{"scp", "git@github.com:org/repo.git", "https://github.com/org/repo.git"},
+		{"ssh", "ssh://git@github.com/org/repo.git", "https://github.com/org/repo.git"},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			jtesting.AssertEqual(t, httpsCloneURL(tt.url, tt.pat), tt.want)
+			jtesting.AssertEqual(t, httpsURL(tt.url), tt.want)
 		})
 	}
 }
 
-func noopCloner(_, _ string) error                     { return nil }
+func noopCloner(_, _, _ string) error                   { return nil }
 func noopKiller(_ string) error                         { return nil }
 func noopTokenWriter(_, _ string) error                 { return nil }
 func noopRepoProvisioner(_, _ string, _ []string) error { return nil }
@@ -107,7 +106,7 @@ func TestRunCloneSuccess(t *testing.T) {
 	setupAgentFixtures(t, []string{"commit", "pr"})
 
 	var clonedDirs []string
-	cloner := func(_, dir string) error {
+	cloner := func(_, dir, _ string) error {
 		clonedDirs = append(clonedDirs, dir)
 		return nil
 	}
@@ -201,7 +200,7 @@ func TestRunCloneSkipsExisting(t *testing.T) {
 	_ = os.MkdirAll(dir, 0o750)
 
 	var cloned bool
-	cloner := func(_, _ string) error {
+	cloner := func(_, _, _ string) error {
 		cloned = true
 		return nil
 	}
@@ -222,7 +221,7 @@ func TestRunCloneForceReplacesExisting(t *testing.T) {
 	_ = os.MkdirAll(dir, 0o750)
 
 	var cloned bool
-	cloner := func(_, _ string) error {
+	cloner := func(_, _, _ string) error {
 		cloned = true
 		return nil
 	}

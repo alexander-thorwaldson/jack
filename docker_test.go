@@ -19,12 +19,14 @@ func TestSessionMountsBasic(t *testing.T) {
 	c := Config{}
 	mounts := SessionMounts(c, "blue", "/home/user/.jack/blue/vicky")
 
-	jtesting.AssertEqual(t, len(mounts), 2)
-	jtesting.AssertEqual(t, mounts[0].Target, "/root/.claude")
+	jtesting.AssertEqual(t, len(mounts), 3)
+	jtesting.AssertEqual(t, mounts[0].Target, "/home/jack/.claude")
 	jtesting.AssertEqual(t, mounts[0].ReadOnly, false)
-	jtesting.AssertEqual(t, mounts[1].Source, "/home/user/.jack/blue/vicky")
-	jtesting.AssertEqual(t, mounts[1].Target, "/workspace")
+	jtesting.AssertEqual(t, mounts[1].Target, "/home/jack/.claude.json")
 	jtesting.AssertEqual(t, mounts[1].ReadOnly, false)
+	jtesting.AssertEqual(t, mounts[2].Source, "/home/user/.jack/blue/vicky")
+	jtesting.AssertEqual(t, mounts[2].Target, "/workspace")
+	jtesting.AssertEqual(t, mounts[2].ReadOnly, false)
 }
 
 func TestSessionMountsWithSupportingRepos(t *testing.T) {
@@ -41,10 +43,10 @@ func TestSessionMountsWithSupportingRepos(t *testing.T) {
 	}
 	mounts := SessionMounts(c, "blue", filepath.Join(dataDir, "blue", "vicky"))
 
-	jtesting.AssertEqual(t, len(mounts), 3)
-	jtesting.AssertEqual(t, mounts[2].Source, wikiDir)
-	jtesting.AssertEqual(t, mounts[2].Target, "/repos/wiki")
-	jtesting.AssertEqual(t, mounts[2].ReadOnly, false)
+	jtesting.AssertEqual(t, len(mounts), 4)
+	jtesting.AssertEqual(t, mounts[3].Source, wikiDir)
+	jtesting.AssertEqual(t, mounts[3].Target, "/repos/wiki")
+	jtesting.AssertEqual(t, mounts[3].ReadOnly, false)
 }
 
 func TestSessionEnv(t *testing.T) {

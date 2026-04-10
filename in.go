@@ -114,6 +114,12 @@ func runIn(agent, project string, loadReg RegistryLoader, selAgent AgentSelector
 		}
 	}
 
+	// Sync Claude OAuth credentials from keychain to disk so the
+	// container (which cannot access the macOS keychain) can authenticate.
+	if err := syncClaudeCredentials(); err != nil {
+		fmt.Fprintf(os.Stderr, "warning: could not sync claude credentials: %v\n", err)
+	}
+
 	// Start the container.
 	containerName := ContainerName(agent, project)
 	mounts := SessionMounts(cfg, agent, dir)
