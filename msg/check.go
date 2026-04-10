@@ -154,9 +154,9 @@ func runCheck(timeout int, jsonOut bool, sync syncFunc, getInfo RoomInfoGetter, 
 	return watchLoop(ctx, saved, jsonOut, sync, getInfo, save)
 }
 
-// printSyncMessages prints messages and invites from a sync response.
-// Returns true if any messages were found.
-func printSyncMessages(resp *SyncResponse, jsonOut bool, getInfo RoomInfoGetter) bool {
+// collectSyncMessages extracts messages and invites from a sync response
+// into a flat slice of watchMessage structs.
+func collectSyncMessages(resp *SyncResponse, getInfo RoomInfoGetter) []watchMessage {
 	roomNames := map[string]string{}
 	lookupName := func(roomID string) string {
 		if name, ok := roomNames[roomID]; ok {
@@ -172,36 +172,25 @@ func printSyncMessages(resp *SyncResponse, jsonOut bool, getInfo RoomInfoGetter)
 		return roomID
 	}
 
-	enc := json.NewEncoder(os.Stdout)
-	enc.SetIndent("", "  ")
-
-	found := false
+	var msgs []watchMessage
 	for roomID, room := range resp.Rooms.Join {
 		for _, m := range room.Timeline.Events {
 			if m.Type != msgTypeRoomMessage {
 				continue
 			}
-			found = true
 			body, _ := m.Content["body"].(string)
-			if jsonOut {
-				if err := enc.Encode(watchMessage{
-					Type:     "message",
-					RoomID:   roomID,
-					RoomName: lookupName(roomID),
-					Sender:   m.Sender,
-					Body:     body,
-					EventID:  m.EventID,
-				}); err != nil {
-					return false
-				}
-			} else {
-				fmt.Printf("[%s] %s: %s\n", lookupName(roomID), m.Sender, body)
-			}
+			msgs = append(msgs, watchMessage{
+				Type:     "message",
+				RoomID:   roomID,
+				RoomName: lookupName(roomID),
+				Sender:   m.Sender,
+				Body:     body,
+				EventID:  m.EventID,
+			})
 		}
 	}
 
 	for _, inv := range parseInvites(resp.Rooms.Invite) {
-		found = true
 		name := inv.Name
 		if name == "" {
 			name = inv.RoomID
@@ -210,22 +199,42 @@ func printSyncMessages(resp *SyncResponse, jsonOut bool, getInfo RoomInfoGetter)
 		if sender == "" {
 			sender = unknownPlaceholder
 		}
-		if jsonOut {
-			if err := enc.Encode(watchMessage{
-				Type:     "invite",
-				RoomID:   inv.RoomID,
-				RoomName: name,
-				Sender:   sender,
-				Body:     fmt.Sprintf("invited you to %s", name),
-			}); err != nil {
-				return false
-			}
-		} else {
-			fmt.Printf("[invite] %s invited you to %s\n", sender, name)
-		}
+		msgs = append(msgs, watchMessage{
+			Type:     "invite",
+			RoomID:   inv.RoomID,
+			RoomName: name,
+			Sender:   sender,
+			Body:     fmt.Sprintf("invited you to %s", name),
+		})
 	}
 
-	return found
+	return msgs
+}
+
+// printSyncMessages prints messages and invites from a sync response.
+// Returns true if any messages were found.
+func printSyncMessages(resp *SyncResponse, jsonOut bool, getInfo RoomInfoGetter) bool {
+	msgs := collectSyncMessages(resp, getInfo)
+	if len(msgs) == 0 {
+		return false
+	}
+	printMessages(msgs, jsonOut)
+	return true
+}
+
+// printMessages prints a slice of watchMessages to stdout.
+func printMessages(msgs []watchMessage, jsonOut bool) {
+	enc := json.NewEncoder(os.Stdout)
+	enc.SetIndent("", "  ")
+	for _, m := range msgs {
+		if jsonOut {
+			_ = enc.Encode(m)
+		} else if m.Type == "invite" {
+			fmt.Printf("[invite] %s %s\n", m.Sender, m.Body)
+		} else {
+			fmt.Printf("[%s] %s: %s\n", m.RoomName, m.Sender, m.Body)
+		}
+	}
 }
 
 // watchLoop is the long-poll sync loop used when no pending messages were found.
