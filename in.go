@@ -138,6 +138,11 @@ func runIn(agent, project string, loadReg RegistryLoader, selAgent AgentSelector
 		}
 	}
 
+	// Start background credential refresh so OAuth tokens stay fresh
+	// inside the bind-mounted ~/.claude directory.
+	stopSync := startCredentialSync(context.Background())
+	defer stopSync()
+
 	// Build the tmux command as docker exec into the container.
 	shellCmd := buildContainerShellCmd()
 	tmuxCmd := DockerExecCmd(containerName, shellCmd)

@@ -8,6 +8,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"runtime"
+	"time"
 )
 
 const keychainService = "Claude Code-credentials"
@@ -47,4 +48,28 @@ func syncClaudeCredentials() error {
 	}
 
 	return nil
+}
+
+// credSyncInterval controls how often the credential sidecar re-syncs.
+const credSyncInterval = 30 * time.Minute
+
+// startCredentialSync periodically re-syncs Claude OAuth credentials from
+// the macOS keychain to disk. The returned cancel function stops the loop.
+func startCredentialSync(ctx context.Context) context.CancelFunc {
+	ctx, cancel := context.WithCancel(ctx)
+	go func() {
+		ticker := time.NewTicker(credSyncInterval)
+		defer ticker.Stop()
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			case <-ticker.C:
+				if err := syncClaudeCredentials(); err != nil {
+					fmt.Fprintf(os.Stderr, "warning: credential sync failed: %v\n", err)
+				}
+			}
+		}
+	}()
+	return cancel
 }
